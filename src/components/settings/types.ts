@@ -1,5 +1,6 @@
 export type SettingsTab = 
   | 'profile' 
+  | 'users'
   | 'factory' 
   | 'language' 
   | 'notifications' 

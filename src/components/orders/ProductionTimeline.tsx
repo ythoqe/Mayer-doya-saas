@@ -33,17 +33,9 @@ export interface PipelineStage {
 }
 
 export const PIPELINE_STAGES: PipelineStage[] = [
-  { key: 'pending', labelKey: 'stage_pending', shortLabel: 'Booked', icon: Clock, stepNumber: 1 },
-  { key: 'lot_received', labelKey: 'stage_lot_received', shortLabel: 'Lot Received', icon: Package, stepNumber: 2 },
-  { key: 'batch_assigned', labelKey: 'stage_batch_assigned', shortLabel: 'Batch Assigned', icon: Layers, stepNumber: 3 },
-  { key: 'washing', labelKey: 'stage_washing', shortLabel: 'Washing', icon: Droplets, stepNumber: 4 },
-  { key: 'dyeing', labelKey: 'stage_dyeing', shortLabel: 'Dyeing', icon: Layers, stepNumber: 5 },
-  { key: 'hydro', labelKey: 'stage_hydro', shortLabel: 'Hydro Extractor', icon: RotateCcw, stepNumber: 6 },
-  { key: 'drying', labelKey: 'stage_drying', shortLabel: 'Drying & Curing', icon: Wind, stepNumber: 7 },
-  { key: 'finishing', labelKey: 'stage_finishing', shortLabel: 'Finishing', icon: Sparkles, stepNumber: 8 },
-  { key: 'qc_passed', labelKey: 'stage_qc_passed', shortLabel: 'QC Passed', icon: CheckCircle2, stepNumber: 9 },
-  { key: 'ready_for_delivery', labelKey: 'stage_ready_for_delivery', shortLabel: 'Ready Dispatch', icon: Truck, stepNumber: 10 },
-  { key: 'delivered', labelKey: 'stage_delivered', shortLabel: 'Delivered', icon: CheckCircle, stepNumber: 11 },
+  { key: 'pending', labelKey: 'stage_pending', shortLabel: 'Pending', icon: Clock, stepNumber: 1 },
+  { key: 'washing', labelKey: 'stage_washing', shortLabel: 'Washing', icon: Droplets, stepNumber: 2 },
+  { key: 'delivered', labelKey: 'stage_delivered', shortLabel: 'Delivered', icon: CheckCircle, stepNumber: 3 },
 ];
 
 export const getStageProgressPercentage = (status: OrderStatus): number => {

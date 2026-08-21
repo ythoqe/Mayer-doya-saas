@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { 
   Language, 
   User, 
+  UserRole,
+  UserStatus,
   Order, 
   Client, 
   Supplier, 
@@ -15,6 +17,31 @@ import {
   OrderStatus 
 } from '../types';
 import { translations } from '../utils/translation';
+import { db, firebaseConfig } from '../lib/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  getDocs, 
+  writeBatch 
+} from 'firebase/firestore';
+
+export const DEFAULT_ADMIN: User = {
+  id: 'usr-admin-primary',
+  name: 'Mojammal Hoq',
+  email: 'hmmojjammalhoq@gmail.com',
+  password: '@hoq@95036042HM',
+  role: 'super_admin',
+  status: 'approved',
+  phone: '+880 1700-000000',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  approvedAt: '2026-01-01T00:00:00.000Z',
+  approvedBy: 'System',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+};
 
 interface ERPContextType {
   // Localization & Auth
@@ -23,10 +50,26 @@ interface ERPContextType {
   t: (key: string) => string;
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  login: (email: string, role?: string) => Promise<boolean>;
+  users: User[];
+  pendingUsersCount: number;
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => void;
+  registerUser: (userData: {
+    name: string;
+    email: string;
+    password?: string;
+    role: UserRole;
+    phone?: string;
+  }) => Promise<{ success: boolean; message: string }>;
+  approveUser: (userId: string) => Promise<void>;
+  rejectUser: (userId: string) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
+  updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
   isOnline: boolean;
   isSyncing: boolean;
+  firebaseConnected: boolean;
+  firebaseProjectId: string;
+  syncAllToFirebase: () => Promise<boolean>;
 
   // Collections
   orders: Order[];
@@ -93,79 +136,17 @@ interface ERPContextType {
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
 
-// Initial Seed Data
-const initialClients: Client[] = [
-  { id: 'c1', name: 'Al-Amin Hossain', companyName: 'Apex Apparels Ltd.', phone: '+880 1711-234567', email: 'merchandising@apexapparels.com', address: 'Plot 42, Gazipur Industrial Area, Dhaka', totalBilled: 485000, totalPaid: 360000, balance: 125000, status: 'active', createdAt: '2026-01-15' },
-  { id: 'c2', name: 'Mahmudur Rahman', companyName: 'Ha-Meem Denim Processing', phone: '+880 1819-876543', email: 'mahmud@hameemgroup.com', address: 'Narayanganj BSCIC, Dhaka', totalBilled: 720000, totalPaid: 610000, balance: 110000, status: 'active', createdAt: '2026-01-20' },
-  { id: 'c3', name: 'Tariqul Islam', companyName: 'Beximco Textiles Unit 3', phone: '+880 1912-345678', email: 'tariq@beximco.net', address: 'Sarabo, Kashimpur, Gazipur', totalBilled: 950000, totalPaid: 950000, balance: 0, status: 'active', createdAt: '2026-02-01' },
-  { id: 'c4', name: 'Kamrul Hasan', companyName: 'Pacific Jeans Finishing Hub', phone: '+880 1611-987654', email: 'k.hasan@pacificjeans.com', address: 'CEPZ, Chattogram', totalBilled: 310000, totalPaid: 215000, balance: 95000, status: 'active', createdAt: '2026-02-10' }
-];
-
-const initialOrders: Order[] = [
-  { id: 'ord-101', orderNumber: 'MD-2026-0841', clientId: 'c1', clientName: 'Apex Apparels Ltd.', styleNo: 'APX-DENIM-99', garmentType: 'Denim Pants', colorShade: 'Medium Blue Vintage', washType: 'Enzyme Stone Wash + Tint', quantityPcs: 2500, unitRate: 48, totalAmount: 120000, advanceAmount: 50000, dueAmount: 70000, status: 'washing', receivedDate: '2026-08-18', deliveryDate: '2026-08-23', priority: 'high', batchNumber: 'BATCH-W-04', machineNo: 'WASH-M02', createdAt: '2026-08-18' },
-  { id: 'ord-102', orderNumber: 'MD-2026-0842', clientId: 'c2', clientName: 'Ha-Meem Denim Processing', styleNo: 'HM-CARGO-21', garmentType: 'Twill Cargo Pants', colorShade: 'Olive Drab Dye', washType: 'Reactive Pigment Dyeing', quantityPcs: 1800, unitRate: 65, totalAmount: 117000, advanceAmount: 40000, dueAmount: 77000, status: 'dyeing', receivedDate: '2026-08-19', deliveryDate: '2026-08-25', priority: 'urgent', batchNumber: 'BATCH-D-09', machineNo: 'DYE-M01', createdAt: '2026-08-19' },
-  { id: 'ord-103', orderNumber: 'MD-2026-0843', clientId: 'c3', clientName: 'Beximco Textiles Unit 3', styleNo: 'BEX-SHIRT-77', garmentType: 'Cotton Casual Shirt', colorShade: 'Optic White', washType: 'Bleach Wash + Silicon Softener', quantityPcs: 4200, unitRate: 32, totalAmount: 134400, advanceAmount: 134400, dueAmount: 0, status: 'qc_passed', receivedDate: '2026-08-15', deliveryDate: '2026-08-21', priority: 'normal', batchNumber: 'BATCH-W-01', machineNo: 'WASH-M04', createdAt: '2026-08-15' },
-  { id: 'ord-104', orderNumber: 'MD-2026-0844', clientId: 'c4', clientName: 'Pacific Jeans Finishing Hub', styleNo: 'PJ-JACKET-12', garmentType: 'Denim Jacket', colorShade: 'Acid Snow Bleach', washType: 'Acid Wash + Heavy Potassium Spray', quantityPcs: 1200, unitRate: 95, totalAmount: 114000, advanceAmount: 30000, dueAmount: 84000, status: 'hydro', receivedDate: '2026-08-17', deliveryDate: '2026-08-24', priority: 'high', batchNumber: 'BATCH-W-03', machineNo: 'HYDRO-01', createdAt: '2026-08-17' },
-  { id: 'ord-105', orderNumber: 'MD-2026-0845', clientId: 'c1', clientName: 'Apex Apparels Ltd.', styleNo: 'APX-SHORTS-03', garmentType: 'Knit Shorts', colorShade: 'Deep Charcoal', washType: 'Direct Dyeing + Bio Polish', quantityPcs: 3000, unitRate: 38, totalAmount: 114000, advanceAmount: 30000, dueAmount: 84000, status: 'ready_for_delivery', receivedDate: '2026-08-16', deliveryDate: '2026-08-22', priority: 'normal', batchNumber: 'BATCH-D-06', machineNo: 'FINISH-02', createdAt: '2026-08-16' }
-];
-
-const initialSuppliers: Supplier[] = [
-  { id: 's1', name: 'Haji Rafiqul Islam', company: 'Colour Chem Bangladesh Ltd.', phone: '+880 1712-445566', address: 'Mitford Road, Old Dhaka', category: 'Chemicals', totalPurchases: 620000, totalPaid: 480000, balance: 140000, status: 'active', createdAt: '2026-01-10' },
-  { id: 's2', name: 'Enamul Haque', company: 'Dystar Textile Auxiliaries', phone: '+880 1817-667788', address: 'Tejgaon I/A, Dhaka', category: 'Dyes', totalPurchases: 890000, totalPaid: 750000, balance: 140000, status: 'active', createdAt: '2026-01-12' },
-  { id: 's3', name: 'Zahirul Alam', company: 'Meghna Boiler & Machine Spares', phone: '+880 1913-998877', address: 'Siddirganj, Narayanganj', category: 'Machinery', totalPurchases: 250000, totalPaid: 250000, balance: 0, status: 'active', createdAt: '2026-02-05' }
-];
-
-const initialInventory: InventoryItem[] = [
-  { id: 'inv-1', name: 'Cellulase Bio-Enzyme (Neutral 500)', category: 'Enzyme', supplierId: 's1', supplierName: 'Colour Chem Bangladesh Ltd.', currentStockKg: 380, unit: 'kg', unitPrice: 280, minAlertLevel: 100, location: 'Rack A-02 Chemical Store' },
-  { id: 'inv-2', name: 'Reactive Black DN (Concentrate)', category: 'Dye', supplierId: 's2', supplierName: 'Dystar Textile Auxiliaries', currentStockKg: 45, unit: 'kg', unitPrice: 850, minAlertLevel: 50, location: 'Rack B-01 Dyes Room' },
-  { id: 'inv-3', name: 'Glacial Acetic Acid (99.8%)', category: 'Acid', supplierId: 's1', supplierName: 'Colour Chem Bangladesh Ltd.', currentStockKg: 820, unit: 'kg', unitPrice: 95, minAlertLevel: 250, location: 'Drum Zone C' },
-  { id: 'inv-4', name: 'Micro Silicon Softener (Macro 80)', category: 'Softener', supplierId: 's1', supplierName: 'Colour Chem Bangladesh Ltd.', currentStockKg: 210, unit: 'kg', unitPrice: 190, minAlertLevel: 150, location: 'Rack A-04' },
-  { id: 'inv-5', name: 'Hydrogen Peroxide (50% Grade)', category: 'Bleach', supplierId: 's1', supplierName: 'Colour Chem Bangladesh Ltd.', currentStockKg: 640, unit: 'kg', unitPrice: 65, minAlertLevel: 200, location: 'Drum Zone C' },
-  { id: 'inv-6', name: 'Soda Ash Light (Alkali)', category: 'Alkali', supplierId: 's1', supplierName: 'Colour Chem Bangladesh Ltd.', currentStockKg: 1200, unit: 'kg', unitPrice: 48, minAlertLevel: 400, location: 'Pallet Zone D' }
-];
-
-const initialAccounts: Account[] = [
-  { id: 'acc-1', accountName: 'Prime Bank Factory Current A/C', accountType: 'Bank', accountNumber: '2104108003491', bankName: 'Prime Bank Ltd.', branch: 'Gazipur Branch', currentBalance: 845000, status: 'active' },
-  { id: 'acc-2', accountName: 'Dutch-Bangla CD Operations', accountType: 'Bank', accountNumber: '1181200054321', bankName: 'Dutch-Bangla Bank', branch: 'Uttara Branch', currentBalance: 412000, status: 'active' },
-  { id: 'acc-3', accountName: 'Factory Floor Petty Cash', accountType: 'Petty Cash', currentBalance: 68500, status: 'active' },
-  { id: 'acc-4', accountName: 'bKash Merchant Gateway', accountType: 'MFS', accountNumber: '+880 1711-009988', currentBalance: 34200, status: 'active' }
-];
-
-const initialExpenses: Expense[] = [
-  { id: 'exp-1', voucherNo: 'VOUCH-26-0182', category: 'Gas', amount: 85000, date: '2026-08-15', accountId: 'acc-1', accountName: 'Prime Bank Factory Current A/C', paidBy: 'Titas Gas Transmission', notes: 'Monthly factory boiler line consumption bill', createdAt: '2026-08-15' },
-  { id: 'exp-2', voucherNo: 'VOUCH-26-0183', category: 'Electricity', amount: 112000, date: '2026-08-16', accountId: 'acc-1', accountName: 'Prime Bank Factory Current A/C', paidBy: 'DESCO Gazipur Circle', notes: 'HT Industrial Power Bill', createdAt: '2026-08-16' },
-  { id: 'exp-3', voucherNo: 'VOUCH-26-0184', category: 'Maintenance', amount: 14500, date: '2026-08-18', accountId: 'acc-3', accountName: 'Factory Floor Petty Cash', paidBy: 'Kamrul Spares', notes: 'Washing machine M-02 bearing seal repair', createdAt: '2026-08-18' },
-  { id: 'exp-4', voucherNo: 'VOUCH-26-0185', category: 'Fuel/Boiler', amount: 32000, date: '2026-08-19', accountId: 'acc-3', accountName: 'Factory Floor Petty Cash', paidBy: 'Wood & Husk Vendor', notes: 'Boiler auxiliary fuel load 6 tons', createdAt: '2026-08-19' }
-];
-
-const initialTransactions: Transaction[] = [
-  { id: 'tx-1', type: 'credit', accountId: 'acc-1', amount: 150000, date: '2026-08-18', category: 'Client Payment', referenceId: 'c1', description: 'Advance received from Apex Apparels for Batch W-04', createdAt: '2026-08-18' },
-  { id: 'tx-2', type: 'debit', accountId: 'acc-1', amount: 85000, date: '2026-08-15', category: 'Factory Expense', referenceId: 'exp-1', description: 'Titas Gas boiler bill clearance', createdAt: '2026-08-15' },
-  { id: 'tx-3', type: 'transfer', accountId: 'acc-1', toAccountId: 'acc-3', amount: 50000, date: '2026-08-17', category: 'Internal Transfer', description: 'Replenish floor petty cash float', createdAt: '2026-08-17' }
-];
-
-const initialCheques: Cheque[] = [
-  { id: 'chq-1', chequeNumber: 'CQ-984421', bankName: 'Islami Bank Bangladesh', partyName: 'Apex Apparels Ltd.', partyType: 'Client', amount: 70000, issueDate: '2026-08-18', clearingDate: '2026-08-24', status: 'Pending', accountId: 'acc-1', notes: 'Order MD-2026-0841 balance cheque', createdAt: '2026-08-18' },
-  { id: 'chq-2', chequeNumber: 'CQ-332190', bankName: 'City Bank Ltd.', partyName: 'Colour Chem Bangladesh', partyType: 'Supplier', amount: 95000, issueDate: '2026-08-16', clearingDate: '2026-08-22', status: 'Pending', accountId: 'acc-1', notes: 'Acetic acid bulk invoice payment', createdAt: '2026-08-16' },
-  { id: 'chq-3', chequeNumber: 'CQ-110294', bankName: 'Eastern Bank Ltd.', partyName: 'Beximco Textiles Unit 3', partyType: 'Client', amount: 134400, issueDate: '2026-08-15', clearingDate: '2026-08-17', status: 'Cleared', accountId: 'acc-2', notes: 'Full bill clearance for BEX-SHIRT', createdAt: '2026-08-15' }
-];
-
-const initialEmployees: Employee[] = [
-  { id: 'emp-1', name: 'Md. Delwar Hossain', designation: 'Head Dyeing Master', department: 'Dyeing', phone: '+880 1722-112233', salary: 45000, joinDate: '2023-03-01', status: 'active', shift: 'day' },
-  { id: 'emp-2', name: 'Shah Alam', designation: 'Senior Washing Supervisor', department: 'Washing', phone: '+880 1833-223344', salary: 32000, joinDate: '2023-06-15', status: 'active', shift: 'day' },
-  { id: 'emp-3', name: 'Biplob Mia', designation: 'Hydro & Dryer Operator', department: 'Hydro & Drying', phone: '+880 1944-334455', salary: 18500, joinDate: '2024-01-10', status: 'active', shift: 'night' },
-  { id: 'emp-4', name: 'Nazrul Islam', designation: 'QC & Shade Inspector', department: 'Quality Control', phone: '+880 1655-445566', salary: 26000, joinDate: '2023-11-20', status: 'active', shift: 'day' },
-  { id: 'emp-5', name: 'Kabir Hossain', designation: 'Senior Boiler & Machine Technician', department: 'Maintenance', phone: '+880 1718-998811', salary: 28000, joinDate: '2023-08-05', status: 'active', shift: 'day' },
-  { id: 'emp-6', name: 'Farhana Akter', designation: 'Factory Accountant & Billing Executive', department: 'Accounts', phone: '+880 1819-334411', salary: 30000, joinDate: '2023-05-12', status: 'active', shift: 'general' },
-  { id: 'emp-7', name: 'Rafiqul Islam', designation: 'Finishing & Packing Supervisor', department: 'Finishing', phone: '+880 1922-778899', salary: 22000, joinDate: '2024-02-01', status: 'on_leave', shift: 'day' },
-  { id: 'emp-8', name: 'Abdul Alim', designation: 'Store Keeper & Chemical In-charge', department: 'Administration', phone: '+880 1733-445566', salary: 24000, joinDate: '2023-04-18', status: 'active', shift: 'day' }
-];
-
-const initialNotifications: Notification[] = [
-  { id: 'n1', title: 'Low Chemical Stock Warning', message: 'Reactive Black DN is currently at 45kg (below safe minimum 50kg).', type: 'inventory', read: false, time: '10m ago', linkTab: 'inventory' },
-  { id: 'n2', title: 'New Lot Received for Dyeing', message: 'Order MD-2026-0842 (1,800 pcs) loaded into Dyeing Machine 01.', type: 'order', read: false, time: '35m ago', linkTab: 'orders' },
-  { id: 'n3', title: 'Upcoming Cheque Deposit', message: 'Apex Apparels cheque ৳70,000 clearing scheduled for Aug 24.', type: 'cheque', read: true, time: '2h ago', linkTab: 'accounts' }
-];
+// Initial Collections State (Empty - loaded strictly from Firebase Cloud)
+const initialClients: Client[] = [];
+const initialOrders: Order[] = [];
+const initialSuppliers: Supplier[] = [];
+const initialInventory: InventoryItem[] = [];
+const initialAccounts: Account[] = [];
+const initialExpenses: Expense[] = [];
+const initialTransactions: Transaction[] = [];
+const initialCheques: Cheque[] = [];
+const initialEmployees: Employee[] = [];
+const initialNotifications: Notification[] = [];
 
 const initialUser: User = {
   id: 'usr-admin-1',
@@ -193,12 +174,37 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Auth & Session
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('mayer_doya_users');
+    if (saved) {
+      try {
+        const parsed: User[] = JSON.parse(saved);
+        const hasAdmin = parsed.some(u => u.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase());
+        return hasAdmin ? parsed : [DEFAULT_ADMIN, ...parsed];
+      } catch {
+        return [DEFAULT_ADMIN];
+      }
+    }
+    return [DEFAULT_ADMIN];
+  });
+
   const [currentUser, setCurrentUserState] = useState<User | null>(() => {
     const saved = localStorage.getItem('mayer_doya_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch { return initialUser; }
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.email?.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()) {
+          return DEFAULT_ADMIN;
+        }
+        if (parsed.status === 'approved') {
+          return parsed;
+        }
+        return null;
+      } catch {
+        return DEFAULT_ADMIN;
+      }
     }
-    return initialUser;
+    return DEFAULT_ADMIN;
   });
 
   const setCurrentUser = (user: User | null) => {
@@ -210,16 +216,58 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const login = async (email: string, role?: string): Promise<boolean> => {
-    const matchedRole = (role as User['role']) || 'super_admin';
-    const userObj: User = {
-      id: `usr-${Date.now()}`,
-      name: email.split('@')[0] || 'Factory Manager',
-      email: email || 'manager@mayerdoya.com',
-      role: matchedRole,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-    };
-    setCurrentUser(userObj);
+  const login = async (emailInput: string, passwordInput?: string): Promise<boolean> => {
+    const emailClean = (emailInput || '').trim().toLowerCase();
+    const passClean = (passwordInput || '').trim();
+
+    if (!emailClean) {
+      throw new Error(language === 'bn' ? 'ইমেইল অ্যাড্রেস লিখুন!' : 'Please enter your email!');
+    }
+
+    // Check if primary admin
+    if (emailClean === DEFAULT_ADMIN.email.toLowerCase()) {
+      if (passClean === DEFAULT_ADMIN.password || passClean === '@hoq@95036042HM') {
+        setCurrentUser(DEFAULT_ADMIN);
+        return true;
+      } else {
+        throw new Error(language === 'bn' ? 'এডমিন পাসওয়ার্ড ভুল হয়েছে!' : 'Incorrect Admin Password!');
+      }
+    }
+
+    // Find user in registered list
+    const user = users.find(u => u.email.toLowerCase() === emailClean);
+    if (!user) {
+      throw new Error(
+        language === 'bn' 
+          ? 'এই ইমেইল দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে রেজিস্ট্রেশন করুন।' 
+          : 'No account found with this email. Please register first.'
+      );
+    }
+
+    // Check password
+    if (user.password && user.password !== passClean) {
+      throw new Error(language === 'bn' ? 'ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।' : 'Incorrect password! Please try again.');
+    }
+
+    // Check approval status
+    if (user.status === 'pending') {
+      throw new Error(
+        language === 'bn'
+          ? 'আপনার অ্যাকাউন্টটি এখনো এডমিন অনুমোদনের অপেক্ষায় রয়েছে। এডমিন অনুমোদন দেওয়ার পর লগইন করতে পারবেন।'
+          : 'Your account is pending admin approval. You will be able to log in once approved.'
+      );
+    }
+
+    if (user.status === 'rejected') {
+      throw new Error(
+        language === 'bn'
+          ? 'আপনার অ্যাকাউন্টটি এডমিন কর্তৃক বাতিল করা হয়েছে।'
+          : 'Your account registration was rejected by the administrator.'
+      );
+    }
+
+    // Approved user login
+    setCurrentUser(user);
     return true;
   };
 
@@ -227,81 +275,412 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentUser(null);
   };
 
-  // Collections with localStorage persistence fallback
-  const [clients, setClients] = useState<Client[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_clients');
-    return saved ? JSON.parse(saved) : initialClients;
-  });
+  const registerUser = async (userData: {
+    name: string;
+    email: string;
+    password?: string;
+    role: UserRole;
+    phone?: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    const emailClean = userData.email.trim().toLowerCase();
 
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_orders');
-    return saved ? JSON.parse(saved) : initialOrders;
-  });
+    if (emailClean === DEFAULT_ADMIN.email.toLowerCase()) {
+      return {
+        success: false,
+        message: language === 'bn' ? 'এই ইমেইলটি এডমিন অ্যাকাউন্ট হিসেবে সংরক্ষিত!' : 'This email is reserved for the primary admin!'
+      };
+    }
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_suppliers');
-    return saved ? JSON.parse(saved) : initialSuppliers;
-  });
+    const existing = users.find(u => u.email.toLowerCase() === emailClean);
+    if (existing) {
+      return {
+        success: false,
+        message: language === 'bn' ? 'এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে!' : 'An account with this email already exists!'
+      };
+    }
 
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_inventory');
-    return saved ? JSON.parse(saved) : initialInventory;
-  });
+    const newId = `usr-${Date.now()}`;
+    const newUser: User = {
+      id: newId,
+      name: userData.name.trim(),
+      email: emailClean,
+      password: userData.password?.trim() || '',
+      role: userData.role || 'employee',
+      phone: userData.phone?.trim() || '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_expenses');
-    return saved ? JSON.parse(saved) : initialExpenses;
-  });
+    setUsers(prev => [newUser, ...prev]);
 
-  const [accounts, setAccounts] = useState<Account[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_accounts');
-    return saved ? JSON.parse(saved) : initialAccounts;
-  });
+    try {
+      await setDoc(doc(db, 'users', newId), newUser);
+    } catch (err) {
+      console.warn('Persisted user locally, firestore queue:', err);
+    }
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_transactions');
-    return saved ? JSON.parse(saved) : initialTransactions;
-  });
+    addNotification({
+      title: 'New Account Approval Request',
+      message: `${newUser.name} (${newUser.email}) registered as ${newUser.role} and is waiting for approval.`,
+      type: 'alert'
+    });
 
-  const [cheques, setCheques] = useState<Cheque[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_cheques');
-    return saved ? JSON.parse(saved) : initialCheques;
-  });
+    return {
+      success: true,
+      message: language === 'bn'
+        ? 'আপনার রেজিস্ট্রেশন সফল হয়েছে! এডমিন অনুমোদনের পর আপনি লগইন করতে পারবেন।'
+        : 'Registration submitted successfully! You will be able to log in once the admin approves your account.'
+    };
+  };
 
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_employees');
-    return saved ? JSON.parse(saved) : initialEmployees;
-  });
+  const approveUser = async (userId: string): Promise<void> => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
 
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem('mayer_doya_notifications');
-    return saved ? JSON.parse(saved) : initialNotifications;
-  });
+    const updates: Partial<User> = {
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: currentUser?.name || 'Mojammal Hoq'
+    };
 
-  const [isOnline] = useState<boolean>(true);
-  const [isSyncing] = useState<boolean>(false);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+
+    try {
+      await updateDoc(doc(db, 'users', userId), updates);
+    } catch (err) {
+      console.warn('Approve user sync queue:', err);
+    }
+
+    addNotification({
+      title: 'User Approved',
+      message: `${target.name}'s account has been approved.`,
+      type: 'order'
+    });
+  };
+
+  const rejectUser = async (userId: string): Promise<void> => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+
+    const updates: Partial<User> = { status: 'rejected' };
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+
+    try {
+      await updateDoc(doc(db, 'users', userId), updates);
+    } catch (err) {
+      console.warn('Reject user sync queue:', err);
+    }
+  };
+
+  const deleteUser = async (userId: string): Promise<void> => {
+    const target = users.find(u => u.id === userId);
+    if (target?.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()) {
+      throw new Error('Cannot delete primary super admin account');
+    }
+
+    setUsers(prev => prev.filter(u => u.id !== userId));
+
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (err) {
+      console.warn('Delete user sync queue:', err);
+    }
+  };
+
+  const updateUserRole = async (userId: string, newRole: UserRole): Promise<void> => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    try {
+      await updateDoc(doc(db, 'users', userId), { role: newRole });
+    } catch (err) {
+      console.warn('Update user role queue:', err);
+    }
+  };
+
+  const pendingUsersCount = useMemo(() => {
+    return users.filter(u => u.status === 'pending').length;
+  }, [users]);
+
+  // Collections state - initialized strictly from empty array or synced Firestore cache
+  const [clients, setClients] = useState<Client[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cheques, setCheques] = useState<Cheque[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine ?? true);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [firebaseConnected, setFirebaseConnected] = useState<boolean>(true);
   const [quickActionModal, openQuickAction] = useState<'order' | 'expense' | 'payment' | 'chemical' | null>(null);
 
-  // Sync to localStorage
-  useEffect(() => { localStorage.setItem('mayer_doya_clients', JSON.stringify(clients)); }, [clients]);
-  useEffect(() => { localStorage.setItem('mayer_doya_orders', JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem('mayer_doya_suppliers', JSON.stringify(suppliers)); }, [suppliers]);
-  useEffect(() => { localStorage.setItem('mayer_doya_inventory', JSON.stringify(inventory)); }, [inventory]);
-  useEffect(() => { localStorage.setItem('mayer_doya_expenses', JSON.stringify(expenses)); }, [expenses]);
-  useEffect(() => { localStorage.setItem('mayer_doya_accounts', JSON.stringify(accounts)); }, [accounts]);
-  useEffect(() => { localStorage.setItem('mayer_doya_transactions', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('mayer_doya_cheques', JSON.stringify(cheques)); }, [cheques]);
-  useEffect(() => { localStorage.setItem('mayer_doya_employees', JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem('mayer_doya_notifications', JSON.stringify(notifications)); }, [notifications]);
+  // Clear any legacy demo data from localStorage on first run
+  useEffect(() => {
+    try {
+      const keys = [
+        'mayer_doya_clients',
+        'mayer_doya_orders',
+        'mayer_doya_suppliers',
+        'mayer_doya_inventory',
+        'mayer_doya_expenses',
+        'mayer_doya_accounts',
+        'mayer_doya_transactions',
+        'mayer_doya_cheques',
+        'mayer_doya_employees',
+        'mayer_doya_notifications'
+      ];
+      // If cached data contains demo IDs like 'ord-101' or 'c1', purge it
+      const cachedOrders = localStorage.getItem('mayer_doya_orders');
+      if (cachedOrders && cachedOrders.includes('ord-101')) {
+        keys.forEach(k => localStorage.removeItem(k));
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
 
-  // Operations
-  const addEmployee = (employeeData: Omit<Employee, 'id'>) => {
+  // Online status listeners
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Real-time Firestore Subscriptions
+  useEffect(() => {
+    setIsSyncing(true);
+    const unsubs: (() => void)[] = [];
+
+    try {
+      // 1. Orders
+      const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
+        const list: Order[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Order));
+        setOrders(list);
+        setFirebaseConnected(true);
+      }, (err) => {
+        console.warn('Firestore orders sync notice:', err.message);
+      });
+      unsubs.push(unsubOrders);
+
+      // 2. Clients
+      const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
+        const list: Client[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Client));
+        setClients(list);
+      }, (err) => console.warn('Firestore clients sync notice:', err.message));
+      unsubs.push(unsubClients);
+
+      // 3. Suppliers
+      const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snap) => {
+        const list: Supplier[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Supplier));
+        setSuppliers(list);
+      }, (err) => console.warn('Firestore suppliers sync notice:', err.message));
+      unsubs.push(unsubSuppliers);
+
+      // 4. Inventory / Chemicals (supports both 'chemicals' and 'inventory' collection names)
+      const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => {
+        if (!snap.empty) {
+          const list: InventoryItem[] = snap.docs.map((docSnap) => ({
+            ...docSnap.data(),
+            id: docSnap.id
+          } as InventoryItem));
+          setInventory(list);
+        }
+      }, (err) => console.warn('Firestore inventory sync notice:', err.message));
+      unsubs.push(unsubInventory);
+
+      const unsubChemicals = onSnapshot(collection(db, 'chemicals'), (snap) => {
+        if (!snap.empty) {
+          const list: InventoryItem[] = snap.docs.map((docSnap) => ({
+            ...docSnap.data(),
+            id: docSnap.id
+          } as InventoryItem));
+          setInventory(list);
+        }
+      }, (err) => console.warn('Firestore chemicals sync notice:', err.message));
+      unsubs.push(unsubChemicals);
+
+      // 5. Expenses
+      const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snap) => {
+        const list: Expense[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Expense));
+        setExpenses(list);
+      }, (err) => console.warn('Firestore expenses sync notice:', err.message));
+      unsubs.push(unsubExpenses);
+
+      // 6. Accounts
+      const unsubAccounts = onSnapshot(collection(db, 'accounts'), (snap) => {
+        const list: Account[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Account));
+        setAccounts(list);
+      }, (err) => console.warn('Firestore accounts sync notice:', err.message));
+      unsubs.push(unsubAccounts);
+
+      // 7. Transactions
+      const unsubTransactions = onSnapshot(collection(db, 'transactions'), (snap) => {
+        const list: Transaction[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Transaction));
+        setTransactions(list);
+      }, (err) => console.warn('Firestore transactions sync notice:', err.message));
+      unsubs.push(unsubTransactions);
+
+      // 8. Cheques
+      const unsubCheques = onSnapshot(collection(db, 'cheques'), (snap) => {
+        const list: Cheque[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Cheque));
+        setCheques(list);
+      }, (err) => console.warn('Firestore cheques sync notice:', err.message));
+      unsubs.push(unsubCheques);
+
+      // 9. Employees
+      const unsubEmployees = onSnapshot(collection(db, 'employees'), (snap) => {
+        const list: Employee[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Employee));
+        setEmployees(list);
+      }, (err) => console.warn('Firestore employees sync notice:', err.message));
+      unsubs.push(unsubEmployees);
+
+      // 10. Notifications
+      const unsubNotifs = onSnapshot(collection(db, 'notifications'), (snap) => {
+        const list: Notification[] = snap.docs.map((docSnap) => ({
+          ...docSnap.data(),
+          id: docSnap.id
+        } as Notification));
+        setNotifications(list);
+      }, (err) => console.warn('Firestore notifications sync notice:', err.message));
+      unsubs.push(unsubNotifs);
+
+      // 11. Users
+      const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        if (!snap.empty) {
+          const list: User[] = snap.docs.map((docSnap) => ({
+            ...docSnap.data(),
+            id: docSnap.id
+          } as User));
+          const hasAdmin = list.some(u => u.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase());
+          const combined = hasAdmin ? list : [DEFAULT_ADMIN, ...list];
+          setUsers(combined);
+          localStorage.setItem('mayer_doya_users', JSON.stringify(combined));
+        } else {
+          setDoc(doc(db, 'users', DEFAULT_ADMIN.id), DEFAULT_ADMIN).catch(() => {});
+        }
+      }, (err) => console.warn('Firestore users sync notice:', err.message));
+      unsubs.push(unsubUsers);
+
+    } catch (error) {
+      console.warn('Firebase real-time synchronization initialized with offline fallback:', error);
+      setFirebaseConnected(false);
+    } finally {
+      setIsSyncing(false);
+    }
+
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
+  }, []);
+
+  // Helper function to sync local records to Firebase batch
+  const syncAllToFirebase = async (): Promise<boolean> => {
+    setIsSyncing(true);
+    try {
+      const batch = writeBatch(db);
+
+      orders.forEach(item => {
+        const ref = doc(db, 'orders', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      clients.forEach(item => {
+        const ref = doc(db, 'clients', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      suppliers.forEach(item => {
+        const ref = doc(db, 'suppliers', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      inventory.forEach(item => {
+        const ref = doc(db, 'inventory', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      expenses.forEach(item => {
+        const ref = doc(db, 'expenses', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      accounts.forEach(item => {
+        const ref = doc(db, 'accounts', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      transactions.forEach(item => {
+        const ref = doc(db, 'transactions', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      cheques.forEach(item => {
+        const ref = doc(db, 'cheques', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      employees.forEach(item => {
+        const ref = doc(db, 'employees', item.id);
+        batch.set(ref, item, { merge: true });
+      });
+
+      await batch.commit();
+      setFirebaseConnected(true);
+      return true;
+    } catch (e) {
+      console.error('Error syncing data to Firebase:', e);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Operations with Firestore persistence
+  const addEmployee = async (employeeData: Omit<Employee, 'id'>) => {
     const id = `emp-${Date.now()}`;
     const newEmp: Employee = {
       ...employeeData,
       id
     };
     setEmployees(prev => [newEmp, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'employees', id), newEmp);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
 
     addNotification({
       title: 'New Employee Registered',
@@ -312,14 +691,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const updateEmployee = (id: string, updates: Partial<Employee>) => {
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
     setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, ...updates } : emp));
+    try {
+      await updateDoc(doc(db, 'employees', id), updates);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const deleteEmployee = (id: string) => {
+  const deleteEmployee = async (id: string) => {
     setEmployees(prev => prev.filter(emp => emp.id !== id));
+    try {
+      await deleteDoc(doc(db, 'employees', id));
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
-  const addOrder = (newOrderData: Omit<Order, 'id' | 'createdAt'>) => {
+
+  const addOrder = async (newOrderData: Omit<Order, 'id' | 'createdAt'>) => {
     const id = `ord-${Date.now()}`;
     const newOrder: Order = {
       ...newOrderData,
@@ -328,20 +718,29 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setOrders(prev => [newOrder, ...prev]);
 
+    try {
+      await setDoc(doc(db, 'orders', id), newOrder);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
+
     // Update Client Billed & Balance
     setClients(prev => prev.map(c => {
       if (c.id === newOrder.clientId) {
         const billed = c.totalBilled + newOrder.totalAmount;
         const paid = c.totalPaid + newOrder.advanceAmount;
-        return { ...c, totalBilled: billed, totalPaid: paid, balance: billed - paid };
+        const updatedClient = { ...c, totalBilled: billed, totalPaid: paid, balance: billed - paid };
+        updateDoc(doc(db, 'clients', c.id), updatedClient).catch(() => {});
+        return updatedClient;
       }
       return c;
     }));
 
     // If advance paid, record transaction
     if (newOrder.advanceAmount > 0) {
+      const txId = `tx-${Date.now()}`;
       const tx: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: txId,
         type: 'credit',
         accountId: accounts[0]?.id || 'acc-1',
         amount: newOrder.advanceAmount,
@@ -352,6 +751,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createdAt: new Date().toISOString().split('T')[0]
       };
       setTransactions(prev => [tx, ...prev]);
+      setDoc(doc(db, 'transactions', txId), tx).catch(() => {});
     }
 
     addNotification({
@@ -363,24 +763,39 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const updateOrderStatus = (id: string, status: OrderStatus) => {
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
     setOrders(prev => prev.map(ord => {
       if (ord.id === id) {
         return { ...ord, status };
       }
       return ord;
     }));
+    try {
+      await updateDoc(doc(db, 'orders', id), { status });
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const updateOrder = (id: string, updates: Partial<Order>) => {
+  const updateOrder = async (id: string, updates: Partial<Order>) => {
     setOrders(prev => prev.map(ord => ord.id === id ? { ...ord, ...updates } : ord));
+    try {
+      await updateDoc(doc(db, 'orders', id), updates);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const deleteOrder = (id: string) => {
+  const deleteOrder = async (id: string) => {
     setOrders(prev => prev.filter(ord => ord.id !== id));
+    try {
+      await deleteDoc(doc(db, 'orders', id));
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const addClient = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
+  const addClient = async (clientData: Omit<Client, 'id' | 'createdAt'>) => {
     const id = `c-${Date.now()}`;
     const newClient: Client = {
       ...clientData,
@@ -389,24 +804,35 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setClients(prev => [newClient, ...prev]);
+    try {
+      await setDoc(doc(db, 'clients', id), newClient);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const updateClient = (id: string, updates: Partial<Client>) => {
+  const updateClient = async (id: string, updates: Partial<Client>) => {
     setClients(prev => prev.map(c => {
       if (c.id === id) {
         const updated = { ...c, ...updates };
         updated.balance = updated.totalBilled - updated.totalPaid;
+        updateDoc(doc(db, 'clients', id), updated).catch(() => {});
         return updated;
       }
       return c;
     }));
   };
 
-  const deleteClient = (id: string) => {
+  const deleteClient = async (id: string) => {
     setClients(prev => prev.filter(c => c.id !== id));
+    try {
+      await deleteDoc(doc(db, 'clients', id));
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const addSupplier = (supplierData: Omit<Supplier, 'id' | 'createdAt'>) => {
+  const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'createdAt'>) => {
     const id = `s-${Date.now()}`;
     const newSupplier: Supplier = {
       ...supplierData,
@@ -415,38 +841,61 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setSuppliers(prev => [newSupplier, ...prev]);
+    try {
+      await setDoc(doc(db, 'suppliers', id), newSupplier);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const updateSupplier = (id: string, updates: Partial<Supplier>) => {
+  const updateSupplier = async (id: string, updates: Partial<Supplier>) => {
     setSuppliers(prev => prev.map(s => {
       if (s.id === id) {
         const updated = { ...s, ...updates };
         updated.balance = updated.totalPurchases - updated.totalPaid;
+        updateDoc(doc(db, 'suppliers', id), updated).catch(() => {});
         return updated;
       }
       return s;
     }));
   };
 
-  const deleteSupplier = (id: string) => {
+  const deleteSupplier = async (id: string) => {
     setSuppliers(prev => prev.filter(s => s.id !== id));
+    try {
+      await deleteDoc(doc(db, 'suppliers', id));
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const addInventoryItem = (itemData: Omit<InventoryItem, 'id'>) => {
+  const addInventoryItem = async (itemData: Omit<InventoryItem, 'id'>) => {
     const id = `inv-${Date.now()}`;
-    setInventory(prev => [{ ...itemData, id }, ...prev]);
+    const newItem: InventoryItem = { ...itemData, id };
+    setInventory(prev => [newItem, ...prev]);
+    try {
+      await setDoc(doc(db, 'inventory', id), newItem);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const updateInventoryStock = (id: string, newStock: number) => {
+  const updateInventoryStock = async (id: string, newStock: number) => {
+    const updates = { currentStockKg: newStock, lastRestocked: new Date().toISOString().split('T')[0] };
     setInventory(prev => prev.map(item => {
       if (item.id === id) {
-        return { ...item, currentStockKg: newStock, lastRestocked: new Date().toISOString().split('T')[0] };
+        return { ...item, ...updates };
       }
       return item;
     }));
+    try {
+      await updateDoc(doc(db, 'inventory', id), updates);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const addExpense = (expenseData: Omit<Expense, 'id' | 'createdAt'>) => {
+  const addExpense = async (expenseData: Omit<Expense, 'id' | 'createdAt'>) => {
     const id = `exp-${Date.now()}`;
     const newExp: Expense = {
       ...expenseData,
@@ -455,17 +904,26 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setExpenses(prev => [newExp, ...prev]);
 
+    try {
+      await setDoc(doc(db, 'expenses', id), newExp);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
+
     // Deduct from account
     setAccounts(prev => prev.map(acc => {
       if (acc.id === newExp.accountId) {
-        return { ...acc, currentBalance: acc.currentBalance - newExp.amount };
+        const updatedAcc = { ...acc, currentBalance: acc.currentBalance - newExp.amount };
+        updateDoc(doc(db, 'accounts', acc.id), updatedAcc).catch(() => {});
+        return updatedAcc;
       }
       return acc;
     }));
 
     // Record Transaction
+    const txId = `tx-${Date.now()}`;
     const tx: Transaction = {
-      id: `tx-${Date.now()}`,
+      id: txId,
       type: 'debit',
       accountId: newExp.accountId,
       amount: newExp.amount,
@@ -476,15 +934,27 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setTransactions(prev => [tx, ...prev]);
+    setDoc(doc(db, 'transactions', txId), tx).catch(() => {});
   };
 
-  const deleteExpense = (id: string) => {
+  const deleteExpense = async (id: string) => {
     setExpenses(prev => prev.filter(e => e.id !== id));
+    try {
+      await deleteDoc(doc(db, 'expenses', id));
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const addAccount = (accData: Omit<Account, 'id'>) => {
+  const addAccount = async (accData: Omit<Account, 'id'>) => {
     const id = `acc-${Date.now()}`;
-    setAccounts(prev => [...prev, { ...accData, id }]);
+    const newAcc: Account = { ...accData, id };
+    setAccounts(prev => [...prev, newAcc]);
+    try {
+      await setDoc(doc(db, 'accounts', id), newAcc);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
   const transferFunds = (fromAccountId: string, toAccountId: string, amount: number, notes?: string): boolean => {
@@ -492,13 +962,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!sourceAcc || sourceAcc.currentBalance < amount) return false;
 
     setAccounts(prev => prev.map(a => {
-      if (a.id === fromAccountId) return { ...a, currentBalance: a.currentBalance - amount };
-      if (a.id === toAccountId) return { ...a, currentBalance: a.currentBalance + amount };
+      if (a.id === fromAccountId) {
+        const updated = { ...a, currentBalance: a.currentBalance - amount };
+        updateDoc(doc(db, 'accounts', a.id), updated).catch(() => {});
+        return updated;
+      }
+      if (a.id === toAccountId) {
+        const updated = { ...a, currentBalance: a.currentBalance + amount };
+        updateDoc(doc(db, 'accounts', a.id), updated).catch(() => {});
+        return updated;
+      }
       return a;
     }));
 
+    const txId = `tx-${Date.now()}`;
     const tx: Transaction = {
-      id: `tx-${Date.now()}`,
+      id: txId,
       type: 'transfer',
       accountId: fromAccountId,
       toAccountId: toAccountId,
@@ -509,15 +988,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setTransactions(prev => [tx, ...prev]);
+    setDoc(doc(db, 'transactions', txId), tx).catch(() => {});
     return true;
   };
 
-  const addCheque = (chequeData: Omit<Cheque, 'id' | 'createdAt'>) => {
+  const addCheque = async (chequeData: Omit<Cheque, 'id' | 'createdAt'>) => {
     const id = `chq-${Date.now()}`;
-    setCheques(prev => [{ ...chequeData, id, createdAt: new Date().toISOString().split('T')[0] }, ...prev]);
+    const newChq: Cheque = { ...chequeData, id, createdAt: new Date().toISOString().split('T')[0] };
+    setCheques(prev => [newChq, ...prev]);
+    try {
+      await setDoc(doc(db, 'cheques', id), newChq);
+    } catch (e) {
+      console.warn('Persisted locally, Firebase sync queued:', e);
+    }
   };
 
-  const updateChequeStatus = (id: string, status: Cheque['status']) => {
+  const updateChequeStatus = async (id: string, status: Cheque['status']) => {
     setCheques(prev => prev.map(chq => {
       if (chq.id === id) {
         // If transitioning to cleared and accountId exists, update bank balance
@@ -525,28 +1011,35 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setAccounts(accs => accs.map(a => {
             if (a.id === chq.accountId) {
               const delta = chq.partyType === 'Client' ? chq.amount : -chq.amount;
-              return { ...a, currentBalance: a.currentBalance + delta };
+              const updated = { ...a, currentBalance: a.currentBalance + delta };
+              updateDoc(doc(db, 'accounts', a.id), updated).catch(() => {});
+              return updated;
             }
             return a;
           }));
         }
-        return { ...chq, status };
+        const updated = { ...chq, status };
+        updateDoc(doc(db, 'cheques', id), { status }).catch(() => {});
+        return updated;
       }
       return chq;
     }));
   };
 
-  const markNotificationAsRead = (id: string) => {
+  const markNotificationAsRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    updateDoc(doc(db, 'notifications', id), { read: true }).catch(() => {});
   };
 
   const markAllNotificationsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
-  const addNotification = (notifData: Omit<Notification, 'id' | 'time'>) => {
+  const addNotification = async (notifData: Omit<Notification, 'id' | 'time'>) => {
     const id = `notif-${Date.now()}`;
-    setNotifications(prev => [{ ...notifData, id, time: 'Just now' }, ...prev]);
+    const newNotif: Notification = { ...notifData, id, time: 'Just now' };
+    setNotifications(prev => [newNotif, ...prev]);
+    setDoc(doc(db, 'notifications', id), newNotif).catch(() => {});
   };
 
   // Metrics derivation
@@ -581,10 +1074,20 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       t,
       currentUser,
       setCurrentUser,
+      users,
+      pendingUsersCount,
       login,
       logout,
+      registerUser,
+      approveUser,
+      rejectUser,
+      deleteUser,
+      updateUserRole,
       isOnline,
       isSyncing,
+      firebaseConnected,
+      firebaseProjectId: firebaseConfig.projectId,
+      syncAllToFirebase,
       orders,
       clients,
       suppliers,
@@ -635,3 +1138,4 @@ export const useERP = (): ERPContextType => {
   }
   return context;
 };
+

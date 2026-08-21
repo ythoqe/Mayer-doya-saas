@@ -255,29 +255,41 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           <div className="p-5 rounded-2xl border border-[#D9EAEB] bg-white space-y-4">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#688285] flex items-center gap-1.5">
               <Droplets className="w-3.5 h-3.5 text-[#0B9FA5]" />
-              {t('jobInfo')}
+              {language === 'bn' ? 'কাপড় ও প্রসেসিং বিবরণ' : 'Fabric & Processing Parameters'}
             </span>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
               <div className="p-3 rounded-xl bg-[#F9FBFC] border border-[#E6F0F1]">
-                <span className="text-[10px] text-[#8EA3A5] block">{t('garmentTypeLabel')}</span>
-                <strong className="text-xs text-[#17383B] block mt-0.5">{order.garmentType}</strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[#F9FBFC] border border-[#E6F0F1]">
-                <span className="text-[10px] text-[#8EA3A5] block">{t('washTypeLabel')}</span>
-                <strong className="text-xs text-[#0B9FA5] block mt-0.5">{order.washType}</strong>
+                <span className="text-[10px] text-[#8EA3A5] block">
+                  {language === 'bn' ? 'কাপড়ের কোয়ালিটি' : 'Fabric Quality'}
+                </span>
+                <strong className="text-xs text-[#0B9FA5] font-extrabold block mt-0.5">
+                  {order.fabricQuality || order.washType || 'মার্কিন'}
+                </strong>
               </div>
 
               <div className="p-3 rounded-xl bg-[#F9FBFC] border border-[#E6F0F1]">
                 <span className="text-[10px] text-[#8EA3A5] block">{t('colorShadeLabel')}</span>
-                <strong className="text-xs text-[#17383B] block mt-0.5">{order.colorShade}</strong>
+                <strong className="text-xs text-[#17383B] block mt-0.5">{order.colorShade || 'Standard'}</strong>
               </div>
 
               <div className="p-3 rounded-xl bg-[#F9FBFC] border border-[#E6F0F1]">
-                <span className="text-[10px] text-[#8EA3A5] block">{t('batchNumberLabel')}</span>
-                <strong className="text-xs font-mono text-[#17383B] block mt-0.5">
-                  {order.batchNumber || 'BATCH-01'} / {order.machineNo || 'WASH-M01'}
+                <span className="text-[10px] text-[#8EA3A5] block">
+                  {language === 'bn' ? '১. গেরে গজ (প্রাপ্ত)' : '1. Grey Gaze (Recv)'}
+                </span>
+                <strong className="text-xs text-[#17383B] block mt-0.5">
+                  {formatNumber(order.greyYards || order.quantityPcs, language)} {language === 'bn' ? 'গজ' : 'Yds'}
+                </strong>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#DDF4F3]/50 border border-[#0B9FA5]/30">
+                <span className="text-[10px] text-[#0B9FA5] font-bold block">
+                  {language === 'bn' ? '২. ফিনিশিং গজ (আউটপুট)' : '2. Finishing Gaze (Out)'}
+                </span>
+                <strong className="text-xs font-black text-[#0B9FA5] block mt-0.5">
+                  {order.finishingYards && order.finishingYards > 0 
+                    ? `${formatNumber(order.finishingYards, language)} ${language === 'bn' ? 'গজ' : 'Yds'}` 
+                    : (language === 'bn' ? 'ওয়াশিং প্রক্রিয়ায় রয়েছে' : 'In Washing Process')}
                 </strong>
               </div>
             </div>
@@ -292,16 +304,24 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
           {/* 4. Commercial & Financials Summary Grid */}
           <div className="p-5 rounded-2xl border border-[#D9EAEB] bg-gradient-to-r from-white via-[#F9FBFC] to-[#F1FAFA] space-y-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#688285] flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5 text-[#0B9FA5]" />
-              {t('financialSummary')}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#688285] flex items-center gap-1.5">
+                <DollarSign className="w-3.5 h-3.5 text-[#0B9FA5]" />
+                {t('financialSummary')}
+              </span>
+              <span className="text-[10px] text-[#0B9FA5] bg-[#DDF4F3] px-2.5 py-0.5 rounded-full font-bold">
+                {language === 'bn' ? 'ফিনিশিং গজের ওপর হিসাবকৃত বিল' : 'Billed on Finishing Gaze'}
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-white border border-[#D9EAEB]">
-                <span className="text-[10px] text-[#8EA3A5] block">{t('quantityPcs')}</span>
+                <span className="text-[10px] text-[#8EA3A5] block">
+                  {language === 'bn' ? 'বিলযোগ্য গজ' : 'Billable Yards'}
+                </span>
                 <strong className="text-sm sm:text-base font-black text-[#17383B] block mt-0.5">
-                  {formatNumber(order.quantityPcs, language)} <span className="text-xs font-normal text-[#8EA3A5]">pcs</span>
+                  {formatNumber(order.finishingYards && order.finishingYards > 0 ? order.finishingYards : (order.greyYards || order.quantityPcs), language)}{' '}
+                  <span className="text-xs font-normal text-[#8EA3A5]">{language === 'bn' ? 'গজ' : 'Yds'}</span>
                 </strong>
               </div>
 

@@ -66,17 +66,8 @@ export const OrderTable: React.FC<OrderTableProps> = ({
 
   const statuses: OrderStatus[] = [
     'pending',
-    'lot_received',
-    'batch_assigned',
     'washing',
-    'dyeing',
-    'hydro',
-    'drying',
-    'finishing',
-    'qc_passed',
-    'ready_for_delivery',
-    'delivered',
-    'cancelled'
+    'delivered'
   ];
 
   if (orders.length === 0) {
@@ -145,25 +136,31 @@ export const OrderTable: React.FC<OrderTableProps> = ({
 
                   {/* 3. Garment & Process */}
                   <td className="py-3.5 px-4">
-                    <div className="font-medium text-xs text-[#17383B]">
-                      {order.garmentType} • <span className="font-bold text-[#0B9FA5]">{order.styleNo}</span>
+                    <div className="font-bold text-xs text-[#17383B] flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-[#DDF4F3] text-[#0B9FA5] font-extrabold text-[11px]">
+                        {order.fabricQuality || order.washType || 'মার্কিন'}
+                      </span>
+                      {order.colorShade && (
+                        <span className="text-[11px] text-[#688285] font-medium">
+                          • {order.colorShade}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="px-2 py-0.2 rounded-md bg-[#F1FAFA] border border-[#D9EAEB] text-[10px] font-medium text-[#688285]">
-                        {order.washType}
-                      </span>
-                      <span className="text-[10px] text-[#8EA3A5]">
-                        {order.colorShade}
-                      </span>
+                    <div className="text-[10px] text-[#8EA3A5] mt-1 font-mono">
+                      {order.styleNo ? `Ref: ${order.styleNo}` : `Rate: ৳${order.unitRate}/গজ`}
                     </div>
                   </td>
 
-                  {/* 4. Quantity */}
+                  {/* 4. Quantity (Gaze / Yards) */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <span className="font-extrabold text-xs text-[#17383B]">
-                      {formatNumber(order.quantityPcs, language)}
-                    </span>
-                    <span className="text-[10px] text-[#8EA3A5] ml-1">pcs</span>
+                    <div className="font-extrabold text-xs text-[#17383B]">
+                      {formatNumber(order.finishingYards && order.finishingYards > 0 ? order.finishingYards : (order.greyYards || order.quantityPcs), language)}
+                      <span className="text-[10px] text-[#0B9FA5] font-bold ml-1">{language === 'bn' ? 'গজ' : 'Yds'}</span>
+                    </div>
+                    <div className="text-[10px] text-[#8EA3A5] font-medium mt-0.5">
+                      {language === 'bn' ? 'গেরে:' : 'Grey:'} {formatNumber(order.greyYards || order.quantityPcs, language)}
+                      {order.finishingYards && order.finishingYards > 0 ? ` | ফিনিশ: ${formatNumber(order.finishingYards, language)}` : ''}
+                    </div>
                   </td>
 
                   {/* 5. Financials */}

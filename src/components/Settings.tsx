@@ -6,11 +6,13 @@ import { FactorySettings } from './settings/FactorySettings';
 import { LanguageSettings } from './settings/LanguageSettings';
 import { NotificationSettings } from './settings/NotificationSettings';
 import { RolesSettings } from './settings/RolesSettings';
+import { UsersSettings } from './settings/UsersSettings';
 import { PreferencesSettings } from './settings/PreferencesSettings';
 import { SecuritySettings } from './settings/SecuritySettings';
 import { SystemSettings } from './settings/SystemSettings';
 import { 
   User, 
+  Users,
   Building2, 
   Globe, 
   Bell, 
@@ -24,10 +26,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Settings: React.FC = () => {
-  const { t } = useERP();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const { t, pendingUsersCount } = useERP();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('users');
 
-  const navItems: { id: SettingsTab; labelKey: string; icon: React.ElementType; color: string }[] = [
+  const navItems: { id: SettingsTab; labelKey: string; icon: React.ElementType; color: string; badge?: number }[] = [
+    { id: 'users', labelKey: 'tabUsers', icon: Users, color: 'text-[#0B9FA5]', badge: pendingUsersCount },
     { id: 'profile', labelKey: 'tabProfile', icon: User, color: 'text-[#0B9FA5]' },
     { id: 'factory', labelKey: 'tabFactory', icon: Building2, color: 'text-[#16B8B0]' },
     { id: 'language', labelKey: 'tabLanguage', icon: Globe, color: 'text-[#8178F2]' },
@@ -75,6 +78,11 @@ export const Settings: React.FC = () => {
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{t(item.labelKey)}</span>
+              {item.badge && item.badge > 0 ? (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#EA7185] text-white text-[10px] font-black">
+                  {item.badge}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -110,6 +118,13 @@ export const Settings: React.FC = () => {
                       }`}
                     />
                     <span>{t(item.labelKey)}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                        isActive ? 'bg-white text-[#0B9FA5]' : 'bg-[#EA7185] text-white'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    ) : null}
                   </div>
                   <ChevronRight
                     className={`w-3.5 h-3.5 transition-transform ${
@@ -132,6 +147,7 @@ export const Settings: React.FC = () => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
             >
+              {activeTab === 'users' && <UsersSettings />}
               {activeTab === 'profile' && <ProfileSettings />}
               {activeTab === 'factory' && <FactorySettings />}
               {activeTab === 'language' && <LanguageSettings />}

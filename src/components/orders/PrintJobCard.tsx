@@ -109,19 +109,27 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
             {/* Right: Job Specification */}
             <div className="space-y-1.5 pl-2">
               <div className="flex justify-between">
-                <span className="text-[#688285]">Style No:</span>
-                <strong className="font-mono text-[#17383B]">{order.styleNo}</strong>
+                <span className="text-[#688285]">Fabric Quality (কাপড়):</span>
+                <strong className="text-[#0B9FA5] font-extrabold text-sm">{order.fabricQuality || order.washType || 'মার্কিন'}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#688285]">Garment Item:</span>
-                <strong className="text-[#17383B]">{order.garmentType}</strong>
+                <span className="text-[#688285]">Color / Shade:</span>
+                <strong className="text-[#17383B]">{order.colorShade || 'Standard'}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#688285]">Lot Quantity:</span>
-                <strong className="text-[#0B9FA5] text-sm">{formatNumber(order.quantityPcs, (language as Language) || 'en')} PCS</strong>
+                <span className="text-[#688285]">Grey Gaze (গেরে গজ):</span>
+                <strong className="text-[#17383B]">{formatNumber(order.greyYards || order.quantityPcs, (language as Language) || 'en')} Yds</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#688285]">Delivery Deadline:</span>
+                <span className="text-[#688285]">Finishing Gaze (ফিনিশিং গজ):</span>
+                <strong className="text-[#0B9FA5] font-black">
+                  {order.finishingYards && order.finishingYards > 0 
+                    ? `${formatNumber(order.finishingYards, (language as Language) || 'en')} Yds` 
+                    : 'In Washing'}
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#688285]">Delivery Date:</span>
                 <strong className="text-[#C83F57]">{order.deliveryDate}</strong>
               </div>
             </div>
@@ -162,7 +170,7 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
           {/* Floor Process Sign-off Checklist Table */}
           <div className="border border-[#D9EAEB] rounded-xl overflow-hidden">
             <div className="bg-[#F1FAFA] px-4 py-2 font-bold text-xs text-[#17383B] border-b border-[#D9EAEB]">
-              PRODUCTION ROUTE & STAGE SIGN-OFF
+              PRODUCTION ROUTE & STAGE SIGN-OFF (৩টি প্রধান ধাপ)
             </div>
             <table className="w-full text-left text-[11px]">
               <thead>
@@ -170,7 +178,7 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
                   <th className="py-2 px-3">Stage</th>
                   <th className="py-2 px-3">Process Name</th>
                   <th className="py-2 px-3">Machine / Vessel</th>
-                  <th className="py-2 px-3">Pcs In / Out</th>
+                  <th className="py-2 px-3">Gaze (Yds) In / Out</th>
                   <th className="py-2 px-3">Operator / Master Sign</th>
                   <th className="py-2 px-3">Date / Time</th>
                 </tr>
@@ -178,57 +186,29 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
               <tbody className="divide-y divide-[#E6F0F1]">
                 <tr>
                   <td className="py-2.5 px-3 font-bold text-[#17383B]">01</td>
-                  <td className="py-2.5 px-3 font-semibold">Lot Receiving & Count Inspection</td>
+                  <td className="py-2.5 px-3 font-semibold">1. Pending / Lot Received (গেরে গ্রহণ)</td>
                   <td className="py-2.5 px-3 font-mono">Receiving Deck</td>
-                  <td className="py-2.5 px-3">{order.quantityPcs} pcs</td>
+                  <td className="py-2.5 px-3 font-bold">{order.greyYards || order.quantityPcs} Yds (Grey)</td>
                   <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
                   <td className="py-2.5 px-3">___/___ 08:00</td>
                 </tr>
                 <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">02</td>
-                  <td className="py-2.5 px-3 font-semibold">Batch Weighing & Chemical Dosing</td>
-                  <td className="py-2.5 px-3 font-mono">Chem Lab</td>
-                  <td className="py-2.5 px-3">---</td>
-                  <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
-                  <td className="py-2.5 px-3">___/___ 09:30</td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">03</td>
-                  <td className="py-2.5 px-3 font-semibold">Industrial Washing / Desize / Stone</td>
+                  <td className="py-2.5 px-3 font-bold text-[#0B9FA5]">02</td>
+                  <td className="py-2.5 px-3 font-semibold text-[#0B9FA5]">2. Washing & Processing (ওয়াশিং প্রসেস)</td>
                   <td className="py-2.5 px-3 font-mono">{order.machineNo || 'WASH-M01'}</td>
-                  <td className="py-2.5 px-3">{order.quantityPcs} pcs</td>
-                  <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
-                  <td className="py-2.5 px-3">___/___ 11:45</td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">04</td>
-                  <td className="py-2.5 px-3 font-semibold">High-Temp Dyeing / Tinting</td>
-                  <td className="py-2.5 px-3 font-mono">DYE-M01</td>
-                  <td className="py-2.5 px-3">{order.quantityPcs} pcs</td>
+                  <td className="py-2.5 px-3 font-mono">
+                    {order.finishingYards && order.finishingYards > 0 ? `${order.finishingYards} Yds (Out)` : 'In Progress'}
+                  </td>
                   <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
                   <td className="py-2.5 px-3">___/___ 14:00</td>
                 </tr>
                 <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">05</td>
-                  <td className="py-2.5 px-3 font-semibold">Hydro Extraction & Dewatering</td>
-                  <td className="py-2.5 px-3 font-mono">HYDRO-01</td>
-                  <td className="py-2.5 px-3">{order.quantityPcs} pcs</td>
-                  <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
-                  <td className="py-2.5 px-3">___/___ 15:30</td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">06</td>
-                  <td className="py-2.5 px-3 font-semibold">Steam Drying & Softener Curing</td>
-                  <td className="py-2.5 px-3 font-mono">FINISH-02</td>
-                  <td className="py-2.5 px-3">{order.quantityPcs} pcs</td>
-                  <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
-                  <td className="py-2.5 px-3">___/___ 17:00</td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-bold text-[#17383B]">07</td>
-                  <td className="py-2.5 px-3 font-semibold text-[#229A73]">QC & Shade Matching Inspection</td>
-                  <td className="py-2.5 px-3 font-mono">Light Box D65</td>
-                  <td className="py-2.5 px-3">Pass: ____ Rej: ____</td>
+                  <td className="py-2.5 px-3 font-bold text-[#229A73]">03</td>
+                  <td className="py-2.5 px-3 font-semibold text-[#229A73]">3. Delivered & Dispatched (ডেলিভার সম্পন্ন)</td>
+                  <td className="py-2.5 px-3 font-mono">Dispatch Gate</td>
+                  <td className="py-2.5 px-3 font-bold text-[#229A73]">
+                    {order.finishingYards && order.finishingYards > 0 ? order.finishingYards : (order.greyYards || order.quantityPcs)} Yds Final
+                  </td>
                   <td className="py-2.5 px-3 border-b border-dotted border-slate-400"></td>
                   <td className="py-2.5 px-3">___/___ 18:30</td>
                 </tr>
@@ -239,22 +219,34 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
           {/* Financial & Delivery Summary */}
           <div className="grid grid-cols-2 gap-4 border border-[#D9EAEB] rounded-xl p-4">
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#8EA3A5] block">Commercial Agreement</span>
+              <span className="text-[10px] uppercase font-bold text-[#8EA3A5] block">Commercial Agreement (ফিনিশিং গজের ওপর বিল)</span>
               <div className="mt-1 space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-[#688285]">Unit Rate:</span>
-                  <strong className="text-[#17383B]">{formatCurrency(order.unitRate, (language as Language) || 'en')} / pc</strong>
+                  <span className="text-[#688285]">Grey Gaze (গেরে গজ):</span>
+                  <strong className="text-[#17383B]">{formatNumber(order.greyYards || order.quantityPcs, (language as Language) || 'en')} Yds</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#688285]">Total Bill:</span>
+                  <span className="text-[#688285]">Finishing Gaze (ফিনিশিং গজ):</span>
+                  <strong className="text-[#0B9FA5] font-black">
+                    {order.finishingYards && order.finishingYards > 0 
+                      ? `${formatNumber(order.finishingYards, (language as Language) || 'en')} Yds` 
+                      : `${formatNumber(order.greyYards || order.quantityPcs, (language as Language) || 'en')} Yds (Est)`}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#688285]">Unit Rate (দর):</span>
+                  <strong className="text-[#17383B]">{formatCurrency(order.unitRate, (language as Language) || 'en')} / Yard (গজ)</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#688285]">Total Bill (মোট বিল):</span>
                   <strong className="text-[#17383B] font-bold">{formatCurrency(order.totalAmount, (language as Language) || 'en')}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#688285]">Advance Received:</span>
+                  <span className="text-[#688285]">Advance Received (অগ্রিম):</span>
                   <strong className="text-[#229A73]">{formatCurrency(order.advanceAmount, (language as Language) || 'en')}</strong>
                 </div>
                 <div className="flex justify-between border-t border-[#D9EAEB] pt-1">
-                  <span className="text-[#17383B] font-bold">Due on Delivery:</span>
+                  <span className="text-[#17383B] font-bold">Due on Delivery (মোট বাকি):</span>
                   <strong className="text-[#0B9FA5] font-black">{formatCurrency(order.dueAmount, (language as Language) || 'en')}</strong>
                 </div>
               </div>
@@ -263,7 +255,7 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
             <div className="border-l border-[#D9EAEB] pl-4 flex flex-col justify-between">
               <span className="text-[10px] uppercase font-bold text-[#8EA3A5] block">Gate Pass & Dispatch Verification</span>
               <p className="text-[11px] text-[#688285]">
-                Goods received in good condition according to standard wash recipe parameters.
+                ওয়াশিং করার পর ফিনিশিং গজ মেপে সঠিক কোয়ালিটি নিশ্চিত করে মাল ডেলিভারি বুঝিয়া পাইলাম।
               </p>
               <div className="grid grid-cols-2 gap-4 pt-6 text-center text-[10px]">
                 <div className="border-t border-slate-400 pt-1">

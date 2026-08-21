@@ -23,13 +23,13 @@ export const QuickActionModal: React.FC = () => {
 
   // New Order Form
   const [clientId, setClientId] = useState(clients[0]?.id || '');
-  const [styleNo, setStyleNo] = useState('');
-  const [garmentType, setGarmentType] = useState('Denim Pants');
-  const [washType, setWashType] = useState('Enzyme Stone Wash + Tint');
-  const [quantity, setQuantity] = useState(1000);
-  const [unitRate, setUnitRate] = useState(45);
-  const [advanceAmount, setAdvanceAmount] = useState(15000);
-  const [colorShade, setColorShade] = useState('Medium Blue Vintage');
+  const [fabricQuality, setFabricQuality] = useState('মার্কিন');
+  const [colorShade, setColorShade] = useState('');
+  const [greyYards, setGreyYards] = useState(1000);
+  const [finishingYards, setFinishingYards] = useState(0);
+  const [unitRate, setUnitRate] = useState(40);
+  const [advanceAmount, setAdvanceAmount] = useState(10000);
+  const [deliveryDate, setDeliveryDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]);
 
   // New Expense Form
   const [expCategory, setExpCategory] = useState<'Gas' | 'Electricity' | 'Maintenance' | 'Chemicals' | 'Labor' | 'Misc'>('Maintenance');
@@ -50,25 +50,28 @@ export const QuickActionModal: React.FC = () => {
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const selectedClient = clients.find(c => c.id === clientId) || clients[0];
-    const total = quantity * unitRate;
-    const due = Math.max(0, total - advanceAmount);
+    const billable = Number(finishingYards) > 0 ? Number(finishingYards) : Number(greyYards);
+    const total = Math.round(billable * Number(unitRate));
+    const due = Math.max(0, total - Number(advanceAmount));
 
     addOrder({
       orderNumber: `MD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       clientId: selectedClient?.id || 'c1',
-      clientName: selectedClient?.companyName || 'Apex Apparels Ltd.',
-      styleNo: styleNo || 'STY-SAMPLE-01',
-      garmentType,
+      clientName: selectedClient?.companyName || 'Mayer Doya Fabrics',
+      fabricQuality,
+      washType: fabricQuality,
       colorShade: colorShade || 'Standard Wash',
-      washType,
-      quantityPcs: Number(quantity),
+      greyYards: Number(greyYards),
+      finishingYards: Number(finishingYards) || 0,
+      quantityPcs: billable,
+      quantityYards: billable,
       unitRate: Number(unitRate),
       totalAmount: total,
       advanceAmount: Number(advanceAmount),
       dueAmount: due,
       status: 'pending',
       receivedDate: new Date().toISOString().split('T')[0],
-      deliveryDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+      deliveryDate: deliveryDate || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
       priority: 'normal',
       batchNumber: `BATCH-W-${Math.floor(10 + Math.random() * 90)}`
     });
@@ -192,7 +195,7 @@ export const QuickActionModal: React.FC = () => {
               <form onSubmit={handleCreateOrder} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Client Company</label>
+                    <label className="block text-xs font-bold text-[#17383B] mb-1">{t('clientCompany')}</label>
                     <select
                       value={clientId}
                       onChange={(e) => setClientId(e.target.value)}
@@ -205,86 +208,117 @@ export const QuickActionModal: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Style / Buyer Code</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. APX-DENIM-09"
-                      value={styleNo}
-                      onChange={(e) => setStyleNo(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
-                      required
-                    />
+                    <label className="block text-xs font-bold text-[#17383B] mb-1">
+                      {language === 'bn' ? 'কাপড়ের কোয়ালিটি' : 'Fabric Quality'}
+                    </label>
+                    <select
+                      value={fabricQuality}
+                      onChange={(e) => setFabricQuality(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                    >
+                      <option value="মার্কিন">মার্কিন (Markin)</option>
+                      <option value="লংক্লথ">লংক্লথ (Longcloth)</option>
+                      <option value="ভয়েল">ভয়েল (Voile)</option>
+                      <option value="পপলিন">পপলিন (Poplin)</option>
+                      <option value="ইউনিটিকা">ইউনিটিকা (Unitika)</option>
+                      <option value="আস্তর">আস্তর (Astor / Lining)</option>
+                    </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Wash / Dye Recipe</label>
-                    <select
-                      value={washType}
-                      onChange={(e) => setWashType(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-medium text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
-                    >
-                      <option value="Enzyme Stone Wash + Tint">Enzyme Stone Wash + Tint</option>
-                      <option value="Reactive Pigment Dyeing">Reactive Pigment Dyeing</option>
-                      <option value="Bleach Wash + Silicon Softener">Bleach Wash + Silicon Softener</option>
-                      <option value="Acid Wash + Potassium Spray">Acid Wash + Potassium Spray</option>
-                      <option value="Direct Dyeing + Bio Polish">Direct Dyeing + Bio Polish</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Color / Target Shade</label>
+                    <label className="block text-xs font-bold text-[#17383B] mb-1">
+                      {language === 'bn' ? 'কালার / শেড' : 'Color / Target Shade'}
+                    </label>
                     <input
                       type="text"
-                      placeholder="e.g. Vintage Dark Indigo"
+                      placeholder={language === 'bn' ? 'যেমন: সাদা, নেভি ব্লু, ব্ল্যাক' : 'e.g. White, Navy Blue, Black'}
                       value={colorShade}
                       onChange={(e) => setColorShade(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#17383B] mb-1">{t('deliveryDateLabel')}</label>
+                    <input
+                      type="date"
+                      value={deliveryDate}
+                      onChange={(e) => setDeliveryDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                {/* Yardage & Financial Inputs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F1FAFA]/60 p-3.5 rounded-xl border border-[#D9EAEB]">
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Quantity (Pcs)</label>
+                    <label className="block text-[11px] font-bold text-[#17383B] mb-1">
+                      {language === 'bn' ? '১. গেরে গজ' : '1. Grey Gaze (Yds)'}
+                    </label>
                     <input
                       type="number"
                       min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                      value={greyYards}
+                      onChange={(e) => setGreyYards(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Rate (৳/pc)</label>
+                    <label className="block text-[11px] font-bold text-[#0B9FA5] mb-1">
+                      {language === 'bn' ? '২. ফিনিশিং গজ' : '2. Finishing Gaze'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={finishingYards}
+                      onChange={(e) => setFinishingYards(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full px-2.5 py-1.5 rounded-lg border-2 border-[#0B9FA5]/50 bg-white text-xs font-black text-[#0B9FA5] focus:border-[#0B9FA5] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#17383B] mb-1">
+                      {language === 'bn' ? 'দর (৳/গজ)' : 'Rate (৳/Yd)'}
+                    </label>
                     <input
                       type="number"
                       min="1"
                       value={unitRate}
                       onChange={(e) => setUnitRate(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#17383B] mb-1">Advance (৳)</label>
+                    <label className="block text-[11px] font-bold text-[#229A73] mb-1">
+                      {language === 'bn' ? 'অগ্রিম (৳)' : 'Advance (৳)'}
+                    </label>
                     <input
                       type="number"
                       min="0"
                       value={advanceAmount}
                       onChange={(e) => setAdvanceAmount(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#229A73] focus:border-[#229A73] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="p-3 bg-[#EAF6F7] rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-[#688285]">Calculated Total: <strong className="text-[#17383B]">৳{(quantity * unitRate).toLocaleString()}</strong></span>
-                  <span className="text-[#688285]">Net Balance Due: <strong className="text-[#0B9FA5]">৳{Math.max(0, (quantity * unitRate) - advanceAmount).toLocaleString()}</strong></span>
+                  <span className="text-[#688285]">
+                    {language === 'bn' ? 'হিসাবকৃত মোট বিল:' : 'Total Bill:'}{' '}
+                    <strong className="text-[#17383B]">৳{Math.round(((finishingYards > 0 ? finishingYards : greyYards) * unitRate)).toLocaleString()}</strong>
+                  </span>
+                  <span className="text-[#688285]">
+                    {language === 'bn' ? 'মোট বাকি:' : 'Net Due:'}{' '}
+                    <strong className="text-[#0B9FA5]">৳{Math.max(0, Math.round(((finishingYards > 0 ? finishingYards : greyYards) * unitRate)) - advanceAmount).toLocaleString()}</strong>
+                  </span>
                 </div>
 
                 <button
@@ -292,7 +326,7 @@ export const QuickActionModal: React.FC = () => {
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white font-bold text-xs tracking-wide shadow-[0_4px_15px_rgba(11,159,165,0.25)] transition-all active:scale-98 flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Save & Assign Batch
+                  {language === 'bn' ? 'অর্ডার বুকিং সংরক্ষণ করুন' : 'Save & Book Job Card'}
                 </button>
               </form>
             )}

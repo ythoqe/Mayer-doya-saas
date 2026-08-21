@@ -42,58 +42,31 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({
 
   const LANES: LaneConfig[] = [
     {
-      id: 'receiving',
-      title: 'Booking & Received',
-      titleBn: 'বুকিং ও লট গ্রহণ',
+      id: 'pending',
+      title: 'Pending',
+      titleBn: 'পেন্ডিং',
       statuses: ['pending', 'lot_received'],
-      icon: Package,
+      icon: Clock,
       color: 'border-amber-400 bg-amber-500/10 text-amber-700',
       badgeBg: 'bg-amber-100 text-amber-800'
     },
     {
       id: 'washing',
-      title: 'Batch & Washing',
-      titleBn: 'ব্যাচ ও ড্রাম ওয়াশ',
-      statuses: ['batch_assigned', 'washing'],
+      title: 'Washing',
+      titleBn: 'ওয়াশিং',
+      statuses: ['washing', 'batch_assigned', 'dyeing', 'hydro', 'drying', 'finishing', 'qc_passed', 'ready_for_delivery'],
       icon: Droplets,
       color: 'border-[#0B9FA5] bg-[#0B9FA5]/10 text-[#0B9FA5]',
       badgeBg: 'bg-[#DDF4F3] text-[#0B9FA5]'
     },
     {
-      id: 'dyeing',
-      title: 'Dyeing & Dewater',
-      titleBn: 'ডাইং ও হাইড্রো',
-      statuses: ['dyeing', 'hydro'],
-      icon: Layers,
-      color: 'border-[#8178F2] bg-[#8178F2]/10 text-[#6357E8]',
-      badgeBg: 'bg-[#EEEBFF] text-[#6357E8]'
-    },
-    {
-      id: 'finishing',
-      title: 'Drying & Finishing',
-      titleBn: 'ড্রাইং ও ফিনিশিং',
-      statuses: ['drying', 'finishing'],
-      icon: Wind,
-      color: 'border-[#F3B562] bg-[#F3B562]/10 text-[#C47D1C]',
-      badgeBg: 'bg-[#FFF3DF] text-[#C47D1C]'
-    },
-    {
-      id: 'qc',
-      title: 'QC & Inspection',
-      titleBn: 'কিউসি ও শেড চেক',
-      statuses: ['qc_passed'],
+      id: 'delivered',
+      title: 'Delivered',
+      titleBn: 'ডেলিভার',
+      statuses: ['delivered'],
       icon: CheckCircle2,
       color: 'border-[#38C99A] bg-[#38C99A]/10 text-[#229A73]',
       badgeBg: 'bg-[#E5F8F1] text-[#229A73]'
-    },
-    {
-      id: 'dispatch',
-      title: 'Ready & Dispatch',
-      titleBn: 'প্রস্তুত ও ডেলিভারি',
-      statuses: ['ready_for_delivery', 'delivered'],
-      icon: Truck,
-      color: 'border-[#17383B] bg-[#17383B]/10 text-[#17383B]',
-      badgeBg: 'bg-slate-100 text-slate-700'
     }
   ];
 

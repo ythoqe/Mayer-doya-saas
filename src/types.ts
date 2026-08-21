@@ -11,27 +11,34 @@ export type UserRole =
   | 'employee' 
   | 'auditor';
 
+export type UserStatus = 'pending' | 'approved' | 'rejected';
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
+  status: UserStatus;
   avatar?: string;
   phone?: string;
+  createdAt?: string;
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 export type OrderStatus = 
   | 'pending' 
-  | 'lot_received' 
-  | 'batch_assigned' 
   | 'washing' 
-  | 'dyeing' 
-  | 'hydro' 
-  | 'drying' 
-  | 'finishing' 
-  | 'qc_passed' 
-  | 'ready_for_delivery' 
-  | 'delivered' 
+  | 'delivered'
+  | 'lot_received'
+  | 'batch_assigned'
+  | 'dyeing'
+  | 'hydro'
+  | 'drying'
+  | 'finishing'
+  | 'qc_passed'
+  | 'ready_for_delivery'
   | 'cancelled';
 
 export interface Order {
@@ -39,13 +46,13 @@ export interface Order {
   orderNumber: string;
   clientId: string;
   clientName: string;
-  styleNo: string;
-  garmentType: string;
-  colorShade: string;
-  washType: string;
-  quantityPcs: number;
-  unitRate: number;
-  totalAmount: number;
+  fabricQuality: string; // মার্কিন, লংক্লথ, ভয়েল, পপলিন, ইউনিটিকা, আস্তর
+  greyYards: number; // গেরে গজ (Received Grey Yards)
+  finishingYards: number; // ফিনিশিং গজ (Finishing Yards after washing for billing)
+  quantityPcs?: number; // legacy alias for yards
+  quantityYards?: number; // Yards
+  unitRate: number; // Rate per Yard (দর ৳/গজ)
+  totalAmount: number; // (finishingYards || greyYards) * unitRate
   advanceAmount: number;
   dueAmount: number;
   status: OrderStatus;
@@ -53,6 +60,10 @@ export interface Order {
   deliveryDate: string;
   priority: 'normal' | 'urgent' | 'high';
   remarks?: string;
+  styleNo?: string;
+  garmentType?: string;
+  colorShade?: string;
+  washType?: string;
   batchNumber?: string;
   machineNo?: string;
   createdAt: string;

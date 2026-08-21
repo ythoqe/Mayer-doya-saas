@@ -68,17 +68,8 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
   const statuses: { label: string; value: string }[] = [
     { label: t('allStatuses'), value: 'all' },
     { label: t('pending'), value: 'pending' },
-    { label: t('lot_received'), value: 'lot_received' },
-    { label: t('batch_assigned'), value: 'batch_assigned' },
     { label: t('washing'), value: 'washing' },
-    { label: t('dyeing'), value: 'dyeing' },
-    { label: t('hydro'), value: 'hydro' },
-    { label: t('drying'), value: 'drying' },
-    { label: t('finishing'), value: 'finishing' },
-    { label: t('qc_passed'), value: 'qc_passed' },
-    { label: t('ready_for_delivery'), value: 'ready_for_delivery' },
-    { label: t('delivered'), value: 'delivered' },
-    { label: t('cancelled'), value: 'cancelled' }
+    { label: t('delivered'), value: 'delivered' }
   ];
 
   return (
