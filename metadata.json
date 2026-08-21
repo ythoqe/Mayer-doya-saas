@@ -1,0 +1,6 @@
+{
+  "name": "Mayer Doya - Factory ERP",
+  "description": "Enterprise Washing & Dyeing Factory Management ERP SaaS with production tracking, chemical inventory, client/supplier ledgers, and bilingual support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

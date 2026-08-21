@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: #0B9FA5;
+    --primary-hover: #078A90;
+    --secondary-teal: #16B8B0;
+    --soft-teal: #DDF4F3;
+    --lavender: #8178F2;
+    --soft-lavender: #EEEBFF;
+    --success: #38C99A;
+    --soft-success: #E5F8F1;
+    --warning: #F3B562;
+    --soft-warning: #FFF3DF;
+    --danger: #EA7185;
+    --soft-danger: #FDECEF;
+    --bg-main: #F1FAFA;
+    --bg-secondary: #EAF6F7;
+    --card-bg: #FFFFFF;
+    --glass-card: rgba(255, 255, 255, 0.72);
+    --text-main: #17383B;
+    --text-secondary: #688285;
+    --text-muted: #8EA3A5;
+    --border-color: #D9EAEB;
+    --divider-color: #E6F0F1;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #17383B;
+    background-color: #F1FAFA;
+    min-height: 100vh;
+  }
+}
+
+/* Atmospheric subtle glows inspired by reference */
+.app-atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.app-atmosphere::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -5%;
+  width: 55vw;
+  height: 55vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(11, 159, 165, 0.08) 0%, rgba(221, 244, 243, 0.03) 60%, transparent 80%);
+  filter: blur(60px);
+}
+
+.app-atmosphere::after {
+  content: '';
+  position: absolute;
+  top: -5%;
+  right: -5%;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(129, 120, 242, 0.06) 0%, rgba(238, 235, 255, 0.02) 60%, transparent 80%);
+  filter: blur(70px);
+}
+
+.app-bottom-glow {
+  position: absolute;
+  bottom: -15%;
+  left: 20%;
+  width: 60vw;
+  height: 40vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(22, 184, 176, 0.05) 0%, rgba(241, 250, 250, 0.01) 70%, transparent 90%);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+/* Glassmorphic Surfaces */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 30px rgba(30, 90, 95, 0.05);
+}
+
+.glass-card-subtle {
+  background: rgba(255, 255, 255, 0.80);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(217, 234, 235, 0.7);
+  box-shadow: 0 4px 20px rgba(30, 90, 95, 0.04);
+}
+
+.glass-shell {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+/* Soft Shadows */
+.shadow-soft {
+  box-shadow: 0 8px 30px rgba(30, 90, 95, 0.06);
+}
+
+.shadow-floating {
+  box-shadow: 0 15px 45px rgba(30, 90, 95, 0.10);
+}
+
+.shadow-dropdown {
+  box-shadow: 0 12px 35px rgba(23, 56, 59, 0.12);
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9EAEB;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0B9FA5;
+}
+
+/* Print Stylesheet for Invoices & Challans */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .no-print, .app-atmosphere, nav, header, aside {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
