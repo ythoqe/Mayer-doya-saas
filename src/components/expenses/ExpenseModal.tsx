@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  expenseToEdit?: Expense | null;
 }
 
 const COMMON_EXPENSE_CATEGORIES: Expense['category'][] = [
@@ -24,8 +25,8 @@ const COMMON_EXPENSE_CATEGORIES: Expense['category'][] = [
   'Misc'
 ];
 
-export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) => {
-  const { addExpense, accounts, language, t } = useERP();
+export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, expenseToEdit }) => {
+  const { addExpense, updateExpense, accounts, language, t } = useERP();
 
   const [voucherNo, setVoucherNo] = useState(`VCH-${Date.now().toString().slice(-6)}`);
   const [category, setCategory] = useState<Expense['category']>('Electricity');
@@ -36,6 +37,26 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  React.useEffect(() => {
+    if (expenseToEdit) {
+      setVoucherNo(expenseToEdit.voucherNo);
+      setCategory(expenseToEdit.category);
+      setAmount(expenseToEdit.amount);
+      setDate(expenseToEdit.date);
+      setAccountId(expenseToEdit.accountId);
+      setPaidBy(expenseToEdit.paidBy || 'Accounts Desk');
+      setNotes(expenseToEdit.notes || '');
+    } else {
+      setVoucherNo(`VCH-${Date.now().toString().slice(-6)}`);
+      setCategory('Electricity');
+      setAmount('');
+      setDate(new Date().toISOString().split('T')[0]);
+      setAccountId(accounts[0]?.id || '');
+      setPaidBy('Accounts Desk');
+      setNotes('');
+    }
+  }, [expenseToEdit, accounts]);
 
   if (!isOpen) return null;
 
@@ -56,25 +77,38 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
       return;
     }
 
-    if (selectedAccount && numericAmount > selectedAccount.currentBalance) {
-      setErrorMsg(
-        language === 'bn'
-          ? `নির্বাচিত একাউন্টে পর্যাপ্ত ব্যালেন্স নেই (বর্তমান: ${formatCurrency(selectedAccount.currentBalance, language)})`
-          : `Insufficient funds in selected account (Balance: ${formatCurrency(selectedAccount.currentBalance, language)})`
-      );
-      return;
-    }
+    if (expenseToEdit) {
+      updateExpense(expenseToEdit.id, {
+        voucherNo: voucherNo.trim(),
+        category,
+        amount: numericAmount,
+        date,
+        accountId,
+        accountName: selectedAccount ? selectedAccount.accountName : expenseToEdit.accountName,
+        paidBy: paidBy.trim() || 'Accounts Officer',
+        notes: notes.trim() || undefined
+      });
+    } else {
+      if (selectedAccount && numericAmount > selectedAccount.currentBalance) {
+        setErrorMsg(
+          language === 'bn'
+            ? `নির্বাচিত একাউন্টে পর্যাপ্ত ব্যালেন্স নেই (বর্তমান: ${formatCurrency(selectedAccount.currentBalance, language)})`
+            : `Insufficient funds in selected account (Balance: ${formatCurrency(selectedAccount.currentBalance, language)})`
+        );
+        return;
+      }
 
-    addExpense({
-      voucherNo: voucherNo.trim(),
-      category,
-      amount: numericAmount,
-      date,
-      accountId,
-      accountName: selectedAccount ? selectedAccount.accountName : 'Cash in Hand',
-      paidBy: paidBy.trim() || 'Accounts Officer',
-      notes: notes.trim() || undefined
-    });
+      addExpense({
+        voucherNo: voucherNo.trim(),
+        category,
+        amount: numericAmount,
+        date,
+        accountId,
+        accountName: selectedAccount ? selectedAccount.accountName : 'Cash in Hand',
+        paidBy: paidBy.trim() || 'Accounts Officer',
+        notes: notes.trim() || undefined
+      });
+    }
 
     setIsSuccess(true);
     setTimeout(() => {

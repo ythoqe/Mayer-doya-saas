@@ -2,6 +2,7 @@ import React from 'react';
 import { useERP } from '../../context/ERPContext';
 import { InventoryItem } from '../../types';
 import { formatCurrency, formatNumber } from '../../utils/translation';
+import { getCategoryLabel } from '../../utils/chemicalCategories';
 import { Printer, X } from 'lucide-react';
 
 interface PrintStockReportProps {
@@ -121,7 +122,7 @@ export const PrintStockReport: React.FC<PrintStockReportProps> = ({
                         )}
                       </td>
                       <td className="py-2 px-3 border-r border-[#D9EAEB] font-medium">
-                        {item.category}
+                        {getCategoryLabel(item.category, language)}
                       </td>
                       <td className="py-2 px-3 border-r border-[#D9EAEB] text-[#688285]">
                         {item.location || 'Chemical Store'}

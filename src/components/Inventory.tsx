@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useERP } from '../context/ERPContext';
 import { InventoryItem } from '../types';
+import { matchesChemicalCategory } from '../utils/chemicalCategories';
 import { GlassCard } from './ui/GlassCard';
 import { InventoryKpis } from './inventory/InventoryKpis';
 import { LowStockAlerts } from './inventory/LowStockAlerts';
@@ -12,6 +13,7 @@ import { StockOutModal } from './inventory/StockOutModal';
 import { InventoryItemModal } from './inventory/InventoryItemModal';
 import { InventoryDetailsModal } from './inventory/InventoryDetailsModal';
 import { PrintStockReport } from './inventory/PrintStockReport';
+import { ConfirmDeleteModal } from './ui/ConfirmDeleteModal';
 import { 
   Plus, 
   ArrowDownLeft, 
@@ -25,7 +27,7 @@ import {
 } from 'lucide-react';
 
 export const Inventory: React.FC = () => {
-  const { inventory, suppliers, openQuickAction, language, t } = useERP();
+  const { inventory, suppliers, deleteInventoryItem, openQuickAction, language, t } = useERP();
 
   // Filter & Search States
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +48,7 @@ export const Inventory: React.FC = () => {
   // Selected item for modals
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [printSingleItem, setPrintSingleItem] = useState<InventoryItem | null>(null);
 
   // Filter & Sort Logic
@@ -55,15 +58,15 @@ export const Inventory: React.FC = () => {
         // Search
         const query = searchTerm.toLowerCase();
         const matchesSearch = 
-          item.name.toLowerCase().includes(query) ||
+          (item.name || '').toLowerCase().includes(query) ||
           (item.supplierName && item.supplierName.toLowerCase().includes(query)) ||
           (item.location && item.location.toLowerCase().includes(query)) ||
-          item.category.toLowerCase().includes(query);
+          ((item.category || '').toLowerCase().includes(query));
 
         if (!matchesSearch) return false;
 
         // Category
-        if (selectedCategory !== 'all' && item.category !== selectedCategory) {
+        if (selectedCategory !== 'all' && !matchesChemicalCategory(item.category, selectedCategory)) {
           return false;
         }
 
@@ -307,6 +310,7 @@ export const Inventory: React.FC = () => {
                 onStockIn={handleStockIn}
                 onStockOut={handleStockOut}
                 onEditItem={handleEditItem}
+                onDeleteItem={(item) => setItemToDelete(item)}
               />
             </GlassCard>
           </div>
@@ -321,6 +325,7 @@ export const Inventory: React.FC = () => {
                 onStockIn={handleStockIn}
                 onStockOut={handleStockOut}
                 onEditItem={handleEditItem}
+                onDeleteItem={(item) => setItemToDelete(item)}
               />
             ))}
           </div>
@@ -356,6 +361,7 @@ export const Inventory: React.FC = () => {
         onStockIn={handleStockIn}
         onStockOut={handleStockOut}
         onEditItem={handleEditItem}
+        onDeleteItem={(item) => setItemToDelete(item)}
         onPrintCard={handlePrintStockCard}
       />
 
@@ -364,6 +370,23 @@ export const Inventory: React.FC = () => {
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         singleItem={printSingleItem}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={!!itemToDelete}
+        title={language === 'bn' ? 'কেমিক্যাল আইটেম মুছে ফেলুন' : 'Delete Chemical Item'}
+        itemName={itemToDelete ? `${itemToDelete.name} (${itemToDelete.category} - ${itemToDelete.currentStockKg} ${itemToDelete.unit})` : ''}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (itemToDelete) {
+            deleteInventoryItem(itemToDelete.id);
+            setItemToDelete(null);
+            if (selectedItem?.id === itemToDelete.id) {
+              setIsDetailsModalOpen(false);
+              setSelectedItem(null);
+            }
+          }
+        }}
       />
     </div>
   );

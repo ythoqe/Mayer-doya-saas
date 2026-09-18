@@ -13,12 +13,16 @@ import { Accounts } from './components/Accounts';
 import { Expenses } from './components/Expenses';
 import { Cheques } from './components/Cheques';
 import { Employees } from './components/Employees';
+import { Investors } from './components/Investors';
+import { BankLoans } from './components/loans/BankLoans';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
+import { ClientPaymentModal } from './components/clients/ClientPaymentModal';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ERPAppContent: React.FC = () => {
-  const { currentUser } = useERP();
+  const { currentUser, language, t, quickActionModal, openQuickAction } = useERP();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
   const [isTabletCollapsed, setIsTabletCollapsed] = useState<boolean>(false);
@@ -46,8 +50,13 @@ const ERPAppContent: React.FC = () => {
         return <Expenses />;
       case 'cheques':
         return <Cheques />;
+      case 'bankLoans':
+      case 'loans':
+        return <BankLoans />;
       case 'employees':
         return <Employees />;
+      case 'investors':
+        return <Investors language={language} t={t} />;
       case 'reports':
         return <Reports />;
       case 'settings':
@@ -94,7 +103,9 @@ const ERPAppContent: React.FC = () => {
               transition={{ duration: 0.22, ease: 'easeOut' }}
               className="w-full"
             >
-              {renderActiveView()}
+              <ErrorBoundary resetKeys={[activeTab]}>
+                {renderActiveView()}
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>
@@ -102,14 +113,23 @@ const ERPAppContent: React.FC = () => {
 
       {/* Quick Action Modal */}
       <QuickActionModal />
+
+      {/* Global Quick Client Payment Modal */}
+      <ClientPaymentModal
+        client={null}
+        isOpen={quickActionModal === 'payment'}
+        onClose={() => openQuickAction(null)}
+      />
     </div>
   );
 };
 
 export default function App() {
   return (
-    <ERPProvider>
-      <ERPAppContent />
-    </ERPProvider>
+    <ErrorBoundary>
+      <ERPProvider>
+        <ERPAppContent />
+      </ERPProvider>
+    </ErrorBoundary>
   );
 }

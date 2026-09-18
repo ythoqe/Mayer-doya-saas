@@ -6,7 +6,9 @@ import { OrderTable } from './orders/OrderTable';
 import { ProductionBoard } from './orders/ProductionBoard';
 import { OrderDetailsModal } from './orders/OrderDetailsModal';
 import { OrderEditModal } from './orders/OrderEditModal';
+import { OrderDeliveryModal } from './orders/OrderDeliveryModal';
 import { PrintJobCard } from './orders/PrintJobCard';
+import { ConfirmDeleteModal } from './ui/ConfirmDeleteModal';
 import { formatNumber } from '../utils/translation';
 import { 
   Package, 
@@ -25,7 +27,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Orders: React.FC = () => {
-  const { orders, clients, updateOrderStatus, deleteOrder, openQuickAction, language, t } = useERP();
+  const { orders, clients, updateOrderStatus, deliverOrder, deleteOrder, openQuickAction, language, t } = useERP();
 
   // Active view: 'list' or 'kanban'
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
@@ -44,6 +46,8 @@ export const Orders: React.FC = () => {
   const [selectedOrderForView, setSelectedOrderForView] = useState<Order | null>(null);
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<Order | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
   // Top KPI Metrics derived from real order dataset
   const kpiMetrics = useMemo(() => {
@@ -90,12 +94,12 @@ export const Orders: React.FC = () => {
       if (filters.search.trim()) {
         const query = filters.search.toLowerCase().trim();
         const matchesQuery = 
-          order.orderNumber.toLowerCase().includes(query) ||
-          order.clientName.toLowerCase().includes(query) ||
-          order.styleNo.toLowerCase().includes(query) ||
-          order.washType.toLowerCase().includes(query) ||
-          order.colorShade.toLowerCase().includes(query) ||
-          (order.batchNumber && order.batchNumber.toLowerCase().includes(query));
+          (order.orderNumber || '').toLowerCase().includes(query) ||
+          (order.clientName || '').toLowerCase().includes(query) ||
+          (order.styleNo || '').toLowerCase().includes(query) ||
+          (order.washType || '').toLowerCase().includes(query) ||
+          (order.colorShade || '').toLowerCase().includes(query) ||
+          (order.batchNumber ? order.batchNumber.toLowerCase().includes(query) : false);
 
         if (!matchesQuery) return false;
       }
@@ -150,6 +154,13 @@ export const Orders: React.FC = () => {
   };
 
   const handleUpdateStatus = (orderId: string, newStatus: OrderStatus) => {
+    if (newStatus === 'delivered') {
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        setSelectedOrderForDelivery(order);
+        return;
+      }
+    }
     updateOrderStatus(orderId, newStatus);
     // If active view modal is open for this order, refresh it
     if (selectedOrderForView && selectedOrderForView.id === orderId) {
@@ -157,6 +168,44 @@ export const Orders: React.FC = () => {
         ...selectedOrderForView,
         status: newStatus
       });
+    }
+  };
+
+  const handleConfirmDelivery = async (data: {
+    finishingYards: number;
+    unitRate: number;
+    deliveryNotes?: string;
+    paymentAmount?: number;
+    paymentAccountId?: string;
+    printChallanAfter?: boolean;
+  }) => {
+    if (!selectedOrderForDelivery) return;
+    const orderToDeliver = selectedOrderForDelivery;
+    setSelectedOrderForDelivery(null);
+
+    await deliverOrder(orderToDeliver.id, {
+      finishingYards: data.finishingYards,
+      unitRate: data.unitRate,
+      deliveryNotes: data.deliveryNotes,
+      paymentAmount: data.paymentAmount,
+      paymentAccountId: data.paymentAccountId
+    });
+
+    if (selectedOrderForView && selectedOrderForView.id === orderToDeliver.id) {
+      setSelectedOrderForView(null);
+    }
+
+    if (data.printChallanAfter) {
+      const updatedOrder = {
+        ...orderToDeliver,
+        status: 'delivered' as OrderStatus,
+        finishingYards: data.finishingYards,
+        unitRate: data.unitRate,
+        totalAmount: data.finishingYards * data.unitRate,
+        advanceAmount: (orderToDeliver.advanceAmount || 0) + (data.paymentAmount || 0),
+        dueAmount: Math.max(0, (data.finishingYards * data.unitRate) - ((orderToDeliver.advanceAmount || 0) + (data.paymentAmount || 0)))
+      };
+      setSelectedOrderForPrint(updatedOrder);
     }
   };
 
@@ -367,7 +416,10 @@ export const Orders: React.FC = () => {
               onViewOrder={(order) => setSelectedOrderForView(order)}
               onEditOrder={(order) => setSelectedOrderForEdit(order)}
               onPrintOrder={(order) => setSelectedOrderForPrint(order)}
-              onDeleteOrder={(orderId) => deleteOrder(orderId)}
+              onDeleteOrder={(orderId) => {
+                const target = orders.find(o => o.id === orderId);
+                if (target) setOrderToDelete(target);
+              }}
               onUpdateStatus={handleUpdateStatus}
             />
           </motion.div>
@@ -401,10 +453,24 @@ export const Orders: React.FC = () => {
           onPrint={(order) => {
             setSelectedOrderForPrint(order);
           }}
+          onDeliver={(order) => {
+            setSelectedOrderForDelivery(order);
+          }}
           onDelete={(orderId) => {
-            deleteOrder(orderId);
+            const target = orders.find(o => o.id === orderId);
+            if (target) setOrderToDelete(target);
             setSelectedOrderForView(null);
           }}
+        />
+      )}
+
+      {/* Delivery & Finishing Yards Confirmation Modal */}
+      {selectedOrderForDelivery && (
+        <OrderDeliveryModal
+          isOpen={!!selectedOrderForDelivery}
+          order={selectedOrderForDelivery}
+          onClose={() => setSelectedOrderForDelivery(null)}
+          onConfirmDelivery={handleConfirmDelivery}
         />
       )}
 
@@ -425,6 +491,25 @@ export const Orders: React.FC = () => {
           onClose={() => setSelectedOrderForPrint(null)}
         />
       )}
+
+      {/* Safe Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!orderToDelete}
+        title={language === 'bn' ? 'অর্ডার / জব কার্ড মুছে ফেলবেন?' : 'Delete Order / Job Card?'}
+        message={
+          language === 'bn' 
+            ? `আপনি কি নিশ্চিতভাবে জব কার্ড "${orderToDelete?.orderNumber}" (${orderToDelete?.clientName}) মুছে ফেলতে চান? এটি স্থায়ীভাবে সিস্টেম থেকে মুছে যাবে।`
+            : `Are you sure you want to delete order "${orderToDelete?.orderNumber}" (${orderToDelete?.clientName})? This action cannot be undone.`
+        }
+        confirmLabel={language === 'bn' ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete'}
+        onConfirm={() => {
+          if (orderToDelete) {
+            deleteOrder(orderToDelete.id);
+            setOrderToDelete(null);
+          }
+        }}
+        onCancel={() => setOrderToDelete(null)}
+      />
     </div>
   );
 };

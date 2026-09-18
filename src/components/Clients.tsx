@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   TrendingUp,
-  Download
+  Download,
+  Receipt
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ClientFilters, ClientFilterState } from './clients/ClientFilters';
@@ -19,6 +20,7 @@ import { ClientTable } from './clients/ClientTable';
 import { ClientModal } from './clients/ClientModal';
 import { ClientDetailsModal } from './clients/ClientDetailsModal';
 import { ClientPaymentModal } from './clients/ClientPaymentModal';
+import { PayBillModal } from './clients/PayBillModal';
 import { PrintClientStatement } from './clients/PrintClientStatement';
 
 export const Clients: React.FC = () => {
@@ -34,6 +36,7 @@ export const Clients: React.FC = () => {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPayBillOpen, setIsPayBillOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [paymentClient, setPaymentClient] = useState<Client | null>(null);
@@ -52,11 +55,11 @@ export const Clients: React.FC = () => {
         // Search filter (company, name, phone, address, email)
         if (filters.search) {
           const q = filters.search.toLowerCase();
-          const matchCompany = client.companyName?.toLowerCase().includes(q);
-          const matchName = client.name?.toLowerCase().includes(q);
-          const matchPhone = client.phone?.toLowerCase().includes(q);
-          const matchAddress = client.address?.toLowerCase().includes(q);
-          const matchEmail = client.email?.toLowerCase().includes(q);
+          const matchCompany = (client.companyName || '').toLowerCase().includes(q);
+          const matchName = (client.name || '').toLowerCase().includes(q);
+          const matchPhone = (client.phone || '').toLowerCase().includes(q);
+          const matchAddress = (client.address || '').toLowerCase().includes(q);
+          const matchEmail = (client.email || '').toLowerCase().includes(q);
           if (!matchCompany && !matchName && !matchPhone && !matchAddress && !matchEmail) {
             return false;
           }
@@ -120,6 +123,16 @@ export const Clients: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsPayBillOpen(true)}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-800 font-extrabold text-xs shadow-2xs transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+            title={language === 'bn' ? 'রানিং বিল জমা করুন' : 'Pay Client Running Bill'}
+          >
+            <Receipt className="w-4 h-4 text-teal-700" />
+            <span>{language === 'bn' ? 'রানিং বিল জমা' : 'Pay Running Bill'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
@@ -263,6 +276,14 @@ export const Clients: React.FC = () => {
         isOpen={!!paymentClient}
         onClose={() => setPaymentClient(null)}
       />
+
+      {/* Pay Running Bill Modal */}
+      {isPayBillOpen && (
+        <PayBillModal
+          isOpen={isPayBillOpen}
+          onClose={() => setIsPayBillOpen(false)}
+        />
+      )}
 
       {/* Printable Client Statement */}
       {statementClient && (

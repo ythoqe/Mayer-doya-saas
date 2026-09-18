@@ -3,11 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mayer Doya — Washing & Dyeing Factory ERP</title>
-    <meta name="description" content="Enterprise Washing & Dyeing Factory Management ERP SaaS" />
+    <title>Mayer Doya - Factory ERP</title>
+    <meta name="description" content="Enterprise Washing & Dyeing Factory Management ERP SaaS with production tracking, chemical inventory, client/supplier ledgers, investor & equity management, and bilingual support." />
+    <meta property="og:title" content="Mayer Doya - Factory ERP" />
+    <meta property="og:description" content="Enterprise Washing & Dyeing Factory Management ERP SaaS with production tracking, chemical inventory, client/supplier ledgers, investor & equity management, and bilingual support." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        // Fix for "Cannot set property fetch of #<Window> which has only a getter"
+        try {
+          var realFetch = window.fetch ? window.fetch.bind(window) : undefined;
+          var customFetch = realFetch;
+          
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return customFetch;
+            },
+            set: function(fn) {
+              customFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          // If property cannot be redefined in sandbox, fail silently
+        }
+
+        // Global handler to suppress unhandled abort errors & fetch getter collisions
+        window.addEventListener('error', function(event) {
+          if (event && event.message) {
+            var msg = String(event.message);
+            if (
+              msg.indexOf('Cannot set property fetch') !== -1 ||
+              msg.indexOf('The user aborted a request') !== -1
+            ) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+              return true;
+            }
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (event && event.reason) {
+            var reasonMsg = event.reason.message || String(event.reason);
+            var isAbort = reasonMsg.indexOf('The user aborted a request') !== -1 ||
+                          reasonMsg.indexOf('aborted') !== -1 ||
+                          event.reason.name === 'AbortError';
+            var isFetchGetter = reasonMsg.indexOf('Cannot set property fetch') !== -1;
+            
+            if (isAbort || isFetchGetter) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+              return true;
+            }
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="bg-[#F1FAFA] text-[#17383B] antialiased selection:bg-[#0B9FA5]/20 selection:text-[#0B9FA5] overflow-x-hidden font-sans">
     <div id="root"></div>

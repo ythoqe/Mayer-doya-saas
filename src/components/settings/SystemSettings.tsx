@@ -139,9 +139,9 @@ export const SystemSettings: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8EA3A5] block mb-1">
               {t('databaseSyncStatus')}
             </span>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#229A73]">
-              <span className="w-2 h-2 rounded-full bg-[#38C99A] animate-pulse" />
-              {firebaseConnected ? 'Firebase Live Connected' : 'Connecting...'}
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${firebaseConnected ? 'text-[#229A73]' : 'text-[#0B9FA5]'}`}>
+              <span className={`w-2 h-2 rounded-full ${firebaseConnected ? 'bg-[#38C99A] animate-pulse' : 'bg-[#0B9FA5]'}`} />
+              {firebaseConnected ? 'Firebase Live Connected' : 'Local Storage (Offline Ready)'}
             </div>
             <p className="text-[11px] text-[#688285] mt-1 font-mono truncate" title={firebaseProjectId}>
               Project: {firebaseProjectId}
@@ -154,10 +154,10 @@ export const SystemSettings: React.FC = () => {
             </span>
             <div className="flex items-center gap-1.5 text-xs font-bold text-[#0B9FA5] truncate" title={selectedDb}>
               <Database className="w-3.5 h-3.5 shrink-0 text-[#0B9FA5]" />
-              <span className="truncate">{selectedDb.replace('ai-studio-', '')}</span>
+              <span className="truncate">{selectedDb === '(default)' ? '(default) Primary' : selectedDb.replace('ai-studio-', '')}</span>
             </div>
             <p className="text-[11px] text-[#688285] mt-1 truncate">
-              Region: {selectedDb.includes('28a58811') ? 'asia-southeast1' : 'us-west1'}
+              Mode: {firebaseConnected ? 'Live Cloud Sync' : 'Local Persistence'}
             </p>
           </div>
 
@@ -170,7 +170,7 @@ export const SystemSettings: React.FC = () => {
               React 18 + Vite 5 + Tailwind
             </div>
             <p className="text-[11px] text-[#688285] mt-1">
-              Real-time Firestore Stream
+              {firebaseConnected ? 'Real-time Firestore Stream' : 'Instant LocalStorage Cache'}
             </p>
           </div>
 
@@ -180,10 +180,10 @@ export const SystemSettings: React.FC = () => {
             </span>
             <div className="flex items-center gap-1.5 text-xs font-bold text-[#17383B]">
               <Layers className="w-3.5 h-3.5 text-[#0B9FA5]" />
-              v2.4.0 (Live Firebase)
+              v2.4.0
             </div>
             <p className="text-[11px] text-[#688285] mt-1">
-              Cloud Synchronized
+              {firebaseConnected ? 'Cloud Synchronized' : 'Offline Ready'}
             </p>
           </div>
         </div>
@@ -193,9 +193,9 @@ export const SystemSettings: React.FC = () => {
           <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-[#0B9FA5]" />
-              <span className="text-xs font-bold text-[#17383B]">Cloud Firestore Database Instances (from your Project)</span>
+              <span className="text-xs font-bold text-[#17383B]">Cloud Firestore Database Instances</span>
             </div>
-            <span className="text-[11px] text-[#688285]">Click any instance to connect and view its live datasets</span>
+            <span className="text-[11px] text-[#688285]">Firestore database configuration</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             {KNOWN_DATABASES.map((dbName) => {
@@ -213,7 +213,7 @@ export const SystemSettings: React.FC = () => {
                 >
                   <div className="flex items-center justify-between gap-1 w-full">
                     <span className="text-xs font-bold text-[#17383B] truncate font-mono" title={dbName}>
-                      {dbName.replace('ai-studio-', '')}
+                      {dbName === '(default)' ? '(default) Primary Database' : dbName}
                     </span>
                     {isCurrent && (
                       <span className="px-2 py-0.5 rounded-full bg-[#E5F8F1] text-[#229A73] text-[10px] font-bold">
@@ -222,8 +222,8 @@ export const SystemSettings: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-[#688285] mt-2">
-                    <span>{dbName.includes('28a58811') ? 'asia-southeast1' : 'us-west1'}</span>
-                    <span className="text-[#0B9FA5] font-semibold">{isCurrent ? 'Connected' : 'Select'}</span>
+                    <span>{firebaseConnected ? 'Cloud Active' : 'Offline Local'}</span>
+                    <span className="text-[#0B9FA5] font-semibold">{isCurrent ? 'Selected' : 'Select'}</span>
                   </div>
                 </button>
               );

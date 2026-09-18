@@ -2,19 +2,21 @@ import React, { useState } from 'react';
 import { Expense, Account } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency } from '../../utils/translation';
-import { Receipt, X, Printer, Calendar, User, Landmark, Tag, Trash2, CheckCircle2 } from 'lucide-react';
+import { Receipt, X, Printer, Calendar, User, Landmark, Tag, Trash2, Edit2, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { PrintExpenseVoucher } from './PrintExpenseVoucher';
 
 interface ExpenseDetailsModalProps {
   expense: Expense | null;
   onClose: () => void;
+  onEdit?: (expense: Expense) => void;
   onDelete?: (id: string) => void;
 }
 
 export const ExpenseDetailsModal: React.FC<ExpenseDetailsModalProps> = ({
   expense,
   onClose,
+  onEdit,
   onDelete
 }) => {
   const { accounts, language, t } = useERP();
@@ -147,16 +149,31 @@ export const ExpenseDetailsModal: React.FC<ExpenseDetailsModalProps> = ({
 
           {/* Footer Actions */}
           <div className="p-4 bg-[#F1FAFA] border-t border-[#D9EAEB] flex items-center justify-between">
-            {onDelete ? (
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-xl text-[#8EA3A5] hover:text-[#C93B55] hover:bg-[#FDECEF] transition-colors"
-                title={language === 'bn' ? 'ভাউচার ডিলিট' : 'Delete Voucher'}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            ) : <div />}
+            <div className="flex items-center gap-1">
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="p-2 rounded-xl text-[#8EA3A5] hover:text-[#C93B55] hover:bg-[#FDECEF] transition-colors"
+                  title={language === 'bn' ? 'ভাউচার ডিলিট' : 'Delete Voucher'}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEdit(expense);
+                  }}
+                  className="p-2 rounded-xl text-[#8EA3A5] hover:text-[#F3B562] hover:bg-[#FFF3DF] transition-colors"
+                  title={language === 'bn' ? 'এডিট করুন' : 'Edit Voucher'}
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <button

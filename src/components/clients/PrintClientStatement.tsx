@@ -1,5 +1,6 @@
 import React from 'react';
 import { Client, Order, Language } from '../../types';
+import { useERP } from '../../context/ERPContext';
 import { formatCurrency, formatNumber } from '../../utils/translation';
 import { Printer, X, Building2, Calendar, Phone, MapPin, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -17,22 +18,87 @@ export const PrintClientStatement: React.FC<PrintClientStatementProps> = ({
   language,
   onClose
 }) => {
+  const { transactions } = useERP();
+
+  if (!client) return null;
+
   const clientOrders = orders.filter(o => o.clientId === client.id);
 
-  // Generate ledger items from orders
-  let runningBal = 0;
-  const ledgerRows = clientOrders.map((order) => {
-    const debit = order.totalAmount || 0;
-    const credit = order.advanceAmount || 0;
-    runningBal += debit - credit;
-    return {
-      date: order.receivedDate || new Date().toISOString().split('T')[0],
+  const clientTransactions = transactions.filter(tx => 
+    tx.type === 'credit' && (
+      (client.companyName && (tx.description || '').toLowerCase().includes(client.companyName.toLowerCase())) ||
+      (client.name && (tx.description || '').toLowerCase().includes(client.name.toLowerCase())) ||
+      (tx.category || '').toLowerCase().includes('client payment') ||
+      (tx.category || '').toLowerCase().includes('bill payment') ||
+      (tx.category || '').toLowerCase().includes('delivery settlement')
+    )
+  );
+
+  // Generate ledger items from orders & opening balance
+  const initialOpening = client.openingBalance || (client.previousYearsDues?.reduce((s, d) => s + (Number(d.amount) || 0), 0) || 0);
+  let runningBal = initialOpening;
+
+  const ledgerRows = [];
+  if (initialOpening > 0) {
+    const dueBreakdownText = client.previousYearsDues?.length 
+      ? ` (${client.previousYearsDues.map(d => `${d.year}: ৳${formatNumber(d.amount, language)}`).join(', ')})`
+      : '';
+    ledgerRows.push({
+      date: client.createdAt || '2023-01-01',
+      reference: 'OPEN-BAL',
+      description: language === 'bn' 
+        ? `পূর্ববর্তী বকেয়া জের / বিগত বছরের বকেয়া${dueBreakdownText}` 
+        : `Opening Balance / Past Years Due Brought Forward${dueBreakdownText}`,
+      debit: initialOpening,
+      credit: 0,
+      balance: initialOpening
+    });
+  }
+
+  type RawEntry = {
+    date: string;
+    reference: string;
+    description: string;
+    debit: number;
+    credit: number;
+  };
+
+  const rawEntries: RawEntry[] = [];
+
+  clientOrders.forEach((order) => {
+    const isDelivered = order.status === 'delivered';
+    const debit = order.totalAmount || (order.greyYards * order.unitRate) || 0;
+    const advanceCredit = order.advanceAmount || 0;
+    rawEntries.push({
+      date: order.deliveryDate || order.receivedDate || new Date().toISOString().split('T')[0],
       reference: order.orderNumber,
-      description: `${order.garmentType} - ${order.washType} (${order.quantityPcs} pcs @ ৳${order.unitRate})`,
+      description: `${order.fabricQuality || order.garmentType || 'Fabrics'} - ${order.washType || 'Wash'} (${order.finishingYards || order.quantityPcs || 0} ${order.finishingYards ? 'yds' : 'pcs'})${isDelivered ? ' [Delivered / চালিত]' : ''}`,
       debit,
-      credit,
+      credit: advanceCredit
+    });
+  });
+
+  clientTransactions.forEach((tx) => {
+    const isOrderAdvance = clientOrders.some(o => tx.referenceId === o.id || (tx.description && tx.description.includes(o.orderNumber)));
+    if (!isOrderAdvance) {
+      rawEntries.push({
+        date: tx.date,
+        reference: tx.referenceId || 'RCPT',
+        description: tx.description || 'Running Bill / Due Settlement Payment',
+        debit: 0,
+        credit: tx.amount
+      });
+    }
+  });
+
+  rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  rawEntries.forEach((item) => {
+    runningBal += item.debit - item.credit;
+    ledgerRows.push({
+      ...item,
       balance: runningBal
-    };
+    });
   });
 
   const handlePrint = () => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Employee } from '../../types';
 import { PayrollRecord, AttendanceRecord } from './types';
+import { getCurrentMonthString, getTodayDateString } from './storage';
 import { formatCurrency } from '../../utils/translation';
 import { MayerLogo } from '../ui/MayerLogo';
 import { X, Printer } from 'lucide-react';
@@ -23,8 +24,8 @@ export const PrintPayrollModal: React.FC<PrintPayrollModalProps> = ({
   mode,
   payrollRecords = [],
   attendanceRecords = [],
-  currentMonth = '2026-08',
-  currentDate = new Date().toISOString().split('T')[0]
+  currentMonth = getCurrentMonthString(),
+  currentDate = getTodayDateString()
 }) => {
   const { t, language } = useERP();
 

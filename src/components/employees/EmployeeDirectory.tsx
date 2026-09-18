@@ -22,6 +22,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 
 interface EmployeeDirectoryProps {
   employees: Employee[];
@@ -43,6 +44,7 @@ export const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   const [selectedShift, setSelectedShift] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
 
   const canViewSalary = currentUser && ['super_admin', 'admin', 'accounts_manager', 'auditor'].includes(currentUser.role);
   const canEdit = currentUser && ['super_admin', 'admin', 'hr_manager', 'general_manager'].includes(currentUser.role);
@@ -311,11 +313,7 @@ export const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                if (window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই কর্মীকে মুছে ফেলতে চান?' : 'Are you sure you want to remove this employee?')) {
-                                  onDeleteEmployee(emp.id);
-                                }
-                              }}
+                              onClick={() => setEmployeeToDelete(emp)}
                               className="p-1.5 rounded-lg text-[#8EA3A5] hover:text-red-600 hover:bg-red-50 transition-colors"
                               title="Delete"
                             >
@@ -389,13 +387,24 @@ export const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     {language === 'bn' ? 'প্রোফাইল' : 'View'}
                   </button>
                   {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => onEditEmployee(emp)}
-                      className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#17383B] hover:bg-[#F1FAFA] transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onEditEmployee(emp)}
+                        className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#17383B] hover:bg-[#F1FAFA] transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmployeeToDelete(emp)}
+                        className="p-1 rounded-lg text-[#8EA3A5] hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -403,6 +412,19 @@ export const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           ))}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!employeeToDelete}
+        title={language === 'bn' ? 'কর্মী মুছে ফেলুন' : 'Remove Employee'}
+        itemName={employeeToDelete ? `${employeeToDelete.name} (${employeeToDelete.designation} - ${employeeToDelete.department})` : ''}
+        onClose={() => setEmployeeToDelete(null)}
+        onConfirm={() => {
+          if (employeeToDelete) {
+            onDeleteEmployee(employeeToDelete.id);
+            setEmployeeToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 };

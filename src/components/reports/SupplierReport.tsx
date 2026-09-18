@@ -40,21 +40,22 @@ export const SupplierReport: React.FC<SupplierReportProps> = ({ dateRange }) => 
 
   // Filtered suppliers
   const filteredSuppliers = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return suppliers.filter(s => {
       const companyName = s.company || s.companyName || '';
       const matchesSearch = 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.category.toLowerCase().includes(searchTerm.toLowerCase());
+        (s.name || '').toLowerCase().includes(term) ||
+        companyName.toLowerCase().includes(term) ||
+        (s.phone || '').toLowerCase().includes(term) ||
+        (s.category || '').toLowerCase().includes(term);
       
       const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
 
       let matchesBalance = true;
       if (balanceFilter === 'due') {
-        matchesBalance = s.balance > 0;
+        matchesBalance = (s.balance || 0) > 0;
       } else if (balanceFilter === 'cleared') {
-        matchesBalance = s.balance === 0;
+        matchesBalance = (s.balance || 0) <= 0;
       }
 
       return matchesSearch && matchesCategory && matchesBalance;
@@ -74,7 +75,7 @@ export const SupplierReport: React.FC<SupplierReportProps> = ({ dateRange }) => 
     return suppliers.reduce((sum, s) => sum + (s.balance || 0), 0);
   }, [suppliers]);
 
-  const settleRatio = totalPurchasesAll > 0 ? (totalPaidAll / totalPurchasesAll) * 100 : 0;
+  const settleRatio = totalPurchasesAll > 0 ? Math.min(100, Math.round(((totalPaidAll / totalPurchasesAll) * 100) * 10) / 10) : 0;
 
   // Chart: Category Wise Purchases Breakdown
   const categoryChartData = useMemo(() => {

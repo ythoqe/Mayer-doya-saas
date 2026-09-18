@@ -46,14 +46,15 @@ export const ProductionReport: React.FC<ProductionReportProps> = ({ dateRange })
 
   // Full table filtered orders
   const tableOrders = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return dateFilteredOrders.filter(o => {
       const matchesSearch = 
-        o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.styleNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.washType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (o.machineNo && o.machineNo.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (o.batchNumber && o.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+        (o.orderNumber || '').toLowerCase().includes(term) ||
+        (o.clientName || '').toLowerCase().includes(term) ||
+        (o.styleNo || '').toLowerCase().includes(term) ||
+        (o.washType || '').toLowerCase().includes(term) ||
+        (o.machineNo || '').toLowerCase().includes(term) ||
+        (o.batchNumber || '').toLowerCase().includes(term);
       
       const matchesStage = selectedStage === 'all' || o.status === selectedStage;
       const matchesPriority = selectedPriority === 'all' || o.priority === selectedPriority;

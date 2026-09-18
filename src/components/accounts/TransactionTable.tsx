@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Transaction, Account } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency } from '../../utils/translation';
-import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, FileText, Calendar, Tag, Landmark, SearchX } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, FileText, Calendar, Tag, Landmark, SearchX, Trash2, Edit3 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { EditTransactionModal } from './EditTransactionModal';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -11,11 +12,13 @@ interface TransactionTableProps {
 }
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, accounts }) => {
-  const { language, t } = useERP();
+  const { language, t, deleteTransaction } = useERP();
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const getAccountName = (accId: string) => {
     const acc = accounts.find(a => a.id === accId);
-    return acc ? acc.accountName : accId;
+    if (acc) return acc.accountName;
+    return language === 'bn' ? 'অপসারিত হিসাব' : 'Closed Account';
   };
 
   const getTypeVisual = (type: Transaction['type']) => {
@@ -123,9 +126,33 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                   </td>
 
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <span className={`font-black text-sm ${visual.amountClass}`}>
-                      {visual.prefix} {formatCurrency(tx.amount, language)}
-                    </span>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className={`font-black text-sm ${visual.amountClass}`}>
+                        {visual.prefix} {formatCurrency(tx.amount, language)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTx(tx)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[#8EA3A5] hover:text-[#0B9FA5] hover:bg-[#DDF4F3] transition-all"
+                        title={language === 'bn' ? 'লেনদেন সম্পাদনা' : 'Edit transaction'}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      {deleteTransaction && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(language === 'bn' ? 'এই লেনদেন রেকর্ডটি মুছে ফেলতে চান?' : 'Delete this transaction record?')) {
+                              deleteTransaction(tx.id);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[#8EA3A5] hover:text-[#EA7185] hover:bg-[#FDECEF] transition-all"
+                          title={language === 'bn' ? 'লেনদেন মুছুন' : 'Delete transaction'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -152,9 +179,33 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                   </span>
                   <span className="text-xs font-bold text-[#17383B]">{tx.category}</span>
                 </div>
-                <span className={`font-black text-sm ${visual.amountClass}`}>
-                  {visual.prefix} {formatCurrency(tx.amount, language)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`font-black text-sm ${visual.amountClass}`}>
+                    {visual.prefix} {formatCurrency(tx.amount, language)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTx(tx)}
+                    className="p-1 rounded-md text-[#8EA3A5] hover:text-[#0B9FA5] hover:bg-[#DDF4F3] transition-all"
+                    title={language === 'bn' ? 'সম্পাদনা' : 'Edit'}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  {deleteTransaction && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(language === 'bn' ? 'এই লেনদেন রেকর্ডটি মুছে ফেলতে চান?' : 'Delete this transaction record?')) {
+                          deleteTransaction(tx.id);
+                        }
+                      }}
+                      className="p-1 rounded-md text-[#8EA3A5] hover:text-[#EA7185] hover:bg-[#FDECEF] transition-all"
+                      title={language === 'bn' ? 'মুছুন' : 'Delete'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <p className="text-xs text-[#17383B] font-medium leading-snug">
@@ -176,6 +227,12 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
           );
         })}
       </div>
+
+      <EditTransactionModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+      />
     </div>
   );
 };

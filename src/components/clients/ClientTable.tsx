@@ -13,6 +13,7 @@ import {
   Edit, 
   Trash2, 
   FileText, 
+  Receipt,
   MoreVertical, 
   CheckCircle2, 
   AlertCircle,
@@ -104,8 +105,13 @@ export const ClientTable: React.FC<ClientTableProps> = ({
                             {getInitials(client.name, client.companyName)}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-extrabold text-[#17383B] text-xs truncate group-hover:text-[#0B9FA5] transition-colors">
-                              {client.companyName}
+                            <div className="font-extrabold text-[#17383B] text-xs truncate group-hover:text-[#0B9FA5] transition-colors flex items-center gap-1.5">
+                              <span>{client.companyName}</span>
+                              {((client.openingBalance && client.openingBalance > 0) || (client.previousYearsDues && client.previousYearsDues.length > 0)) && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100/80 text-amber-800 border border-amber-300/60" title={`পূর্বের বকেয়া: ৳${formatCurrency(client.openingBalance || 0, language)}`}>
+                                  {language === 'bn' ? 'বিগত বকেয়াসহ' : 'Prev. Dues'}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-[#8EA3A5] flex items-center gap-1 truncate">
                               <MapPin className="w-3 h-3 text-[#8EA3A5] shrink-0" />
@@ -180,6 +186,16 @@ export const ClientTable: React.FC<ClientTableProps> = ({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Quick Running Bill & Invoices */}
+                          <button
+                            type="button"
+                            onClick={() => onViewClient(client)}
+                            className="p-1.5 rounded-lg text-teal-700 hover:bg-teal-50 hover:text-teal-900 transition-colors"
+                            title={language === 'bn' ? 'রানিং বিল ও চালানসমূহ' : 'Running Bill & Invoices'}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                          </button>
+
                           {/* Quick Receive Payment */}
                           <button
                             type="button"
@@ -315,6 +331,15 @@ export const ClientTable: React.FC<ClientTableProps> = ({
                   >
                     <CreditCard className="w-3 h-3" />
                     <span>{t('recordClientPayment')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onViewClient(client)}
+                    className="p-1.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200"
+                    title={language === 'bn' ? 'রানিং বিল' : 'Running Bill'}
+                  >
+                    <Receipt className="w-3.5 h-3.5" />
                   </button>
 
                   <button

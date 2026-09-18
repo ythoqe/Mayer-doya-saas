@@ -2,6 +2,7 @@ import React from 'react';
 import { useERP } from '../../context/ERPContext';
 import { InventoryItem } from '../../types';
 import { formatCurrency, formatNumber } from '../../utils/translation';
+import { getCategoryLabel } from '../../utils/chemicalCategories';
 import { 
   X, 
   FlaskConical, 
@@ -19,6 +20,7 @@ import {
   Plus, 
   Minus, 
   Edit, 
+  Trash2,
   History, 
   ShieldCheck, 
   ArrowDownLeft, 
@@ -34,6 +36,7 @@ interface InventoryDetailsModalProps {
   onStockIn: (item: InventoryItem) => void;
   onStockOut: (item: InventoryItem) => void;
   onEditItem: (item: InventoryItem) => void;
+  onDeleteItem?: (item: InventoryItem) => void;
   onPrintCard: (item: InventoryItem) => void;
 }
 
@@ -44,9 +47,10 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
   onStockIn,
   onStockOut,
   onEditItem,
+  onDeleteItem,
   onPrintCard
 }) => {
-  const { suppliers, orders, language, t } = useERP();
+  const { suppliers, orders, deleteInventoryItem, language, t } = useERP();
 
   if (!isOpen || !item) return null;
 
@@ -120,7 +124,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
                   {item.name}
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#DDF4F3] text-[#0B9FA5] border border-[#0B9FA5]/30">
-                  {item.category}
+                  {getCategoryLabel(item.category, language)}
                 </span>
               </div>
               <p className="text-xs text-[#688285] mt-0.5 flex items-center gap-2">
@@ -153,8 +157,23 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => {
+                if (onDeleteItem) {
+                  onDeleteItem(item);
+                } else {
+                  deleteInventoryItem(item.id);
+                  onClose();
+                }
+              }}
+              className="p-2 rounded-xl bg-white text-[#8EA3A5] hover:text-[#EA7185] hover:bg-[#FEECEE] border border-[#D9EAEB] transition-colors"
+              title={t('delete')}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-[#8EA3A5] hover:text-[#17383B] hover:bg-white transition-colors"
+              className="p-2 rounded-full text-[#8EA3A5] hover:text-[#17383B] hover:bg-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -277,7 +296,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[#688285]">Classification:</span>
-                  <span className="font-bold text-[#0B9FA5]">{item.category} Compound</span>
+                  <span className="font-bold text-[#0B9FA5]">{getCategoryLabel(item.category, language)} Compound</span>
                 </div>
                 <div className="text-[11px] text-[#8EA3A5] pt-1">
                   Keep in dry, temperature-controlled environment away from direct floor moisture. Ensure safety goggles and protective rubber gloves are worn during transfer.

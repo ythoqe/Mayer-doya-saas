@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { InventoryItem } from '../../types';
+import { CHEMICAL_CATEGORIES, normalizeChemicalCategory } from '../../utils/chemicalCategories';
 import { X, FlaskConical, CheckCircle2, Building2, MapPin, DollarSign, Layers } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -10,15 +11,34 @@ interface InventoryItemModalProps {
   itemToEdit?: InventoryItem | null;
 }
 
+const WASHING_CHEMICAL_PRESETS = [
+  { name: 'Caustic Soda Flakes (NaOH)', category: 'কাস্টিং', unit: 'kg', unitPrice: 120, minAlert: 100 },
+  { name: 'Soda Ash Dense (Na2CO3)', category: 'সোডা', unit: 'kg', unitPrice: 85, minAlert: 80 },
+  { name: 'Acetic Acid 99% (Glacial)', category: 'এসিড', unit: 'kg', unitPrice: 145, minAlert: 60 },
+  { name: 'Oxalic Acid', category: 'এসিড', unit: 'kg', unitPrice: 180, minAlert: 30 },
+  { name: 'Jute Wash Compound', category: 'জুট', unit: 'kg', unitPrice: 290, minAlert: 50 },
+  { name: 'Jute Softener Flakes', category: 'জুট', unit: 'kg', unitPrice: 320, minAlert: 40 },
+  { name: 'Hydrogen Peroxide 50% (H2O2)', category: 'ব্লিচিং', unit: 'kg', unitPrice: 95, minAlert: 100 },
+  { name: 'Bleaching Powder High Grade', category: 'ব্লিচিং', unit: 'kg', unitPrice: 130, minAlert: 80 },
+  { name: 'Potassium Permanganate (PP)', category: 'ব্লিচিং', unit: 'kg', unitPrice: 480, minAlert: 25 },
+  { name: 'Sodium Hydrosulphite (Hydro)', category: 'ব্লিচিং', unit: 'kg', unitPrice: 220, minAlert: 40 },
+  { name: 'Reactive Blue RGB / Navy', category: 'ব্লু', unit: 'kg', unitPrice: 720, minAlert: 20 },
+  { name: 'Direct Blue Dye Fast', category: 'ব্লু', unit: 'kg', unitPrice: 580, minAlert: 25 },
+  { name: 'BMB Auxiliary Agent', category: 'বিএমবি', unit: 'kg', unitPrice: 350, minAlert: 30 },
+  { name: 'BMB Special Dye Fixer', category: 'বিএমবি', unit: 'kg', unitPrice: 420, minAlert: 25 },
+  { name: 'Soda Bicarbonate', category: 'সোডা', unit: 'kg', unitPrice: 90, minAlert: 60 },
+  { name: 'Liquid Caustic 48%', category: 'কাস্টিং', unit: 'kg', unitPrice: 110, minAlert: 70 }
+];
+
 export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
   isOpen,
   onClose,
   itemToEdit
 }) => {
-  const { suppliers, addInventoryItem, updateInventoryStock, inventory, t } = useERP();
+  const { suppliers, addInventoryItem, updateInventoryItem, updateInventoryStock, inventory, language, t } = useERP();
 
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<InventoryItem['category']>('Enzyme');
+  const [category, setCategory] = useState<InventoryItem['category']>('জুট');
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id || '');
   const [currentStock, setCurrentStock] = useState(100);
   const [unit, setUnit] = useState<InventoryItem['unit']>('kg');
@@ -29,16 +49,16 @@ export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
   useEffect(() => {
     if (itemToEdit) {
       setName(itemToEdit.name);
-      setCategory(itemToEdit.category);
+      setCategory(normalizeChemicalCategory(itemToEdit.category));
       setSupplierId(itemToEdit.supplierId || suppliers[0]?.id || '');
       setCurrentStock(itemToEdit.currentStockKg);
       setUnit(itemToEdit.unit);
-      setUnitPrice(itemToEdit.unitPrice);
-      setMinAlertLevel(itemToEdit.minAlertLevel);
+      setUnitPrice(itemToEdit.unitPrice || (itemToEdit as any).unitCost || 250);
+      setMinAlertLevel(itemToEdit.minAlertLevel || (itemToEdit as any).minimumStockKg || 50);
       setLocation(itemToEdit.location || 'Chemical Store');
     } else {
       setName('');
-      setCategory('Enzyme');
+      setCategory('জুট');
       setSupplierId(suppliers[0]?.id || '');
       setCurrentStock(100);
       setUnit('kg');
@@ -50,6 +70,17 @@ export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleSelectPreset = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = WASHING_CHEMICAL_PRESETS.find(p => p.name === e.target.value);
+    if (selected) {
+      setName(selected.name);
+      setCategory(selected.category as any);
+      setUnit(selected.unit as any);
+      setUnitPrice(selected.unitPrice);
+      setMinAlertLevel(selected.minAlert);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -57,10 +88,17 @@ export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
     const selectedSup = suppliers.find(s => s.id === supplierId);
 
     if (itemToEdit) {
-      // Update existing item stock and fields
-      updateInventoryStock(itemToEdit.id, Number(currentStock));
-      // If we need to update other fields, we can update in inventory state if ERPContext supports or update properties
-      // ERPContext handles updateInventoryStock
+      updateInventoryItem(itemToEdit.id, {
+        name: name.trim(),
+        category,
+        supplierId: selectedSup?.id,
+        supplierName: selectedSup?.company || selectedSup?.name || 'General Supply',
+        currentStockKg: Number(currentStock),
+        unit,
+        unitPrice: Number(unitPrice),
+        minAlertLevel: Number(minAlertLevel),
+        location: location.trim() || 'Chemical Store'
+      });
     } else {
       addInventoryItem({
         name: name.trim(),
@@ -119,6 +157,26 @@ export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Chemical Presets Dropdown */}
+          <div className="space-y-1.5 p-3 bg-[#F1FAFA] rounded-2xl border border-[#D9EAEB]">
+            <label className="text-xs font-extrabold text-[#0B9FA5] flex items-center justify-between">
+              <span>{language === 'bn' ? 'স্ট্যান্ডার্ড কেমিক্যাল ড্রপডাউন নির্বাচন' : 'Quick Chemical Preset Dropdown'}</span>
+              <span className="text-[10px] text-[#688285] font-normal">{language === 'bn' ? 'ড্রপডাউন থেকে সহজে সিলেক্ট করুন' : 'Auto-fills category & unit rate'}</span>
+            </label>
+            <select
+              onChange={handleSelectPreset}
+              defaultValue=""
+              className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-white border border-[#D9EAEB] text-[#17383B] focus:border-[#0B9FA5] focus:outline-none font-medium cursor-pointer shadow-2xs"
+            >
+              <option value="" disabled>{language === 'bn' ? '-- কেমিক্যাল ড্রপডাউন তালিকা হতে পছন্দ করুন --' : '-- Choose from Chemical List --'}</option>
+              {WASHING_CHEMICAL_PRESETS.map(p => (
+                <option key={p.name} value={p.name}>
+                  [{p.category}] {p.name} — ৳{p.unitPrice}/{p.unit}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Chemical Name */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#17383B]">
@@ -141,19 +199,16 @@ export const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
                 Category <span className="text-[#EA7185]">*</span>
               </label>
               <select
+                id="chemical-category-select"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as any)}
-                className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-[#F8FCFC] border border-[#D9EAEB] text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
+                className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-[#F8FCFC] border border-[#D9EAEB] text-[#17383B] font-semibold focus:border-[#0B9FA5] focus:outline-none"
               >
-                <option value="Acid">Acid</option>
-                <option value="Enzyme">Enzyme</option>
-                <option value="Dye">Dye</option>
-                <option value="Softener">Softener</option>
-                <option value="Bleach">Bleach</option>
-                <option value="Alkali">Alkali</option>
-                <option value="Fixing Agent">Fixing Agent</option>
-                <option value="Detergent">Detergent</option>
-                <option value="Other">Other Material</option>
+                {CHEMICAL_CATEGORIES.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {language === 'bn' ? c.bn : c.en}
+                  </option>
+                ))}
               </select>
             </div>
 

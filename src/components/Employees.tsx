@@ -38,7 +38,7 @@ export const Employees: React.FC = () => {
     updateEmployee, 
     deleteEmployee, 
     accounts,
-    addExpense,
+    payEmployeeSalary,
     t, 
     language, 
     currentUser 
@@ -51,7 +51,14 @@ export const Employees: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
     const saved = localStorage.getItem('mayer_doya_attendance');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const parsed: AttendanceRecord[] = JSON.parse(saved);
+        // Filter out legacy dummy records with 'att-today-' or 'att-yest-'
+        const cleaned = parsed.filter(a => !a.id.startsWith('att-today-emp-') && !a.id.startsWith('att-yest-emp-'));
+        return cleaned;
+      } catch (e) {
+        console.error(e);
+      }
     }
     return getInitialAttendance(employees);
   });
@@ -59,7 +66,14 @@ export const Employees: React.FC = () => {
   const [advanceRecords, setAdvanceRecords] = useState<AdvanceRecord[]>(() => {
     const saved = localStorage.getItem('mayer_doya_advances');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const parsed: AdvanceRecord[] = JSON.parse(saved);
+        // Filter out dummy advance IDs
+        const cleaned = parsed.filter(a => a.id !== 'adv-101' && a.id !== 'adv-102' && a.employeeName !== 'Shah Alam' && a.employeeName !== 'Biplob Mia');
+        return cleaned;
+      } catch (e) {
+        console.error(e);
+      }
     }
     return getInitialAdvances(employees);
   });
@@ -67,7 +81,13 @@ export const Employees: React.FC = () => {
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => {
     const saved = localStorage.getItem('mayer_doya_payroll');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const parsed: PayrollRecord[] = JSON.parse(saved);
+        const cleaned = parsed.filter(p => !p.id.includes('emp-1') || p.reference !== 'BEFTN-SAL-AUG-01');
+        return cleaned;
+      } catch (e) {
+        console.error(e);
+      }
     }
     return getInitialPayroll(employees, advanceRecords);
   });
@@ -162,7 +182,7 @@ export const Employees: React.FC = () => {
     }));
   };
 
-  const handleConfirmSalaryPayment = (recordId: string, paymentData: {
+  const handleConfirmSalaryPayment = async (recordId: string, paymentData: {
     accountId: string;
     accountName: string;
     amount: number;
@@ -188,15 +208,16 @@ export const Employees: React.FC = () => {
     }));
 
     // 2. Automatically record in ERP expense / accounts
-    addExpense({
-      voucherNo: paymentData.reference || `SAL-${Date.now().toString().slice(-4)}`,
-      date: paymentData.paymentDate,
-      category: 'Labor',
+    const targetEmp = payrollRecords.find(p => p.id === recordId);
+    await payEmployeeSalary({
+      employeeId: targetEmp?.employeeId || recordId,
+      employeeName: targetEmp?.employeeName || payrollRecordToProcess?.employeeName || 'Staff',
+      month: targetEmp?.month || '2026-08',
       amount: paymentData.amount,
       accountId: paymentData.accountId,
-      accountName: paymentData.accountName,
-      paidBy: currentUser?.name || 'Accounts Dept',
-      notes: paymentData.notes || `Salary Disbursement (${payrollRecordToProcess?.employeeName || 'Staff'})`
+      paymentDate: paymentData.paymentDate,
+      reference: paymentData.reference,
+      notes: paymentData.notes
     });
   };
 

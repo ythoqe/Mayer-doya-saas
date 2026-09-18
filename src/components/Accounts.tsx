@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Account, Transaction } from '../types';
+import { Account, Transaction, Cheque } from '../types';
 import { useERP } from '../context/ERPContext';
 import { formatCurrency, formatNumber } from '../utils/translation';
 import { 
@@ -25,14 +25,19 @@ import { CashFlowChart } from './accounts/CashFlowChart';
 import { ChequeSummaryCards } from './cheques/ChequeSummaryCards';
 import { ChequeTable } from './cheques/ChequeTable';
 import { ChequeModal } from './cheques/ChequeModal';
+import { ConfirmDeleteModal } from './ui/ConfirmDeleteModal';
 
 export const Accounts: React.FC = () => {
-  const { accounts, transactions, cheques, language, t } = useERP();
+  const { accounts, transactions, cheques, deleteAccount, language, t } = useERP();
 
   const [activeSubTab, setActiveSubTab] = useState<'accounts' | 'transactions' | 'cheques'>('accounts');
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isAddChequeOpen, setIsAddChequeOpen] = useState(false);
+  const [addChequeDirection, setAddChequeDirection] = useState<'received' | 'issued'>('received');
+  const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [transferSourceAccount, setTransferSourceAccount] = useState<Account | null>(null);
 
@@ -204,16 +209,45 @@ export const Accounts: React.FC = () => {
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {accounts.map(account => (
-                  <AccountCard
-                    key={account.id}
-                    account={account}
-                    onSelect={(acc) => setSelectedAccount(acc)}
-                    onTransfer={handleTransferFrom}
-                  />
-                ))}
-              </div>
+              {accounts.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-dashed border-[#D9EAEB] p-10 text-center flex flex-col items-center justify-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#E5F8F1] text-[#0B9FA5] flex items-center justify-center mb-3">
+                    <Landmark className="w-7 h-7" />
+                  </div>
+                  <h4 className="font-extrabold text-[#17383B] text-base mb-1">
+                    {language === 'bn' ? 'কোন ব্যাংক বা ক্যাশ অ্যাকাউন্ট নেই' : 'No Financial Accounts Registered'}
+                  </h4>
+                  <p className="text-xs text-[#688285] max-w-sm mb-4">
+                    {language === 'bn' 
+                      ? 'কারখানার ক্যাশ বা ব্যাংকের হিসাব পরিচালনা করতে একটি নতুন অ্যাকাউন্ট যুক্ত করুন।' 
+                      : 'Create a cash drawer or bank account to manage your factory cashflow and transactions.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAccount(null);
+                      setIsAddAccountOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] text-white font-extrabold text-xs shadow-md hover:from-[#078A90] hover:to-[#0B9FA5] transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {language === 'bn' ? 'নতুন অ্যাকাউন্ট যোগ করুন' : 'Add First Account'}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {accounts.map(account => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      onSelect={(acc) => setSelectedAccount(acc)}
+                      onTransfer={handleTransferFrom}
+                      onEdit={(acc) => setEditingAccount(acc)}
+                      onDelete={(id) => setAccountToDelete(accounts.find(a => a.id === id) || null)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Cash Flow Visualizer */}
@@ -256,17 +290,30 @@ export const Accounts: React.FC = () => {
             <ChequeSummaryCards />
             <ChequeTable
               cheques={cheques}
-              onAddCheque={() => setIsAddChequeOpen(true)}
+              onAddCheque={(dir) => {
+                setEditingCheque(null);
+                setAddChequeDirection(dir || 'received');
+                setIsAddChequeOpen(true);
+              }}
+              onEditCheque={(chq) => {
+                setEditingCheque(chq);
+                setAddChequeDirection(chq.direction || (chq.partyType === 'Client' ? 'received' : 'issued'));
+                setIsAddChequeOpen(true);
+              }}
             />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Modals */}
-      {isAddAccountOpen && (
+      {(isAddAccountOpen || editingAccount) && (
         <AccountModal
-          isOpen={isAddAccountOpen}
-          onClose={() => setIsAddAccountOpen(false)}
+          isOpen={isAddAccountOpen || !!editingAccount}
+          accountToEdit={editingAccount}
+          onClose={() => {
+            setIsAddAccountOpen(false);
+            setEditingAccount(null);
+          }}
         />
       )}
 
@@ -278,10 +325,15 @@ export const Accounts: React.FC = () => {
         />
       )}
 
-      {isAddChequeOpen && (
+      {(isAddChequeOpen || editingCheque) && (
         <ChequeModal
-          isOpen={isAddChequeOpen}
-          onClose={() => setIsAddChequeOpen(false)}
+          isOpen={isAddChequeOpen || !!editingCheque}
+          chequeToEdit={editingCheque}
+          defaultDirection={addChequeDirection}
+          onClose={() => {
+            setIsAddChequeOpen(false);
+            setEditingCheque(null);
+          }}
         />
       )}
 
@@ -290,8 +342,29 @@ export const Accounts: React.FC = () => {
           account={selectedAccount}
           onClose={() => setSelectedAccount(null)}
           onTransfer={handleTransferFrom}
+          onEdit={(acc) => {
+            setSelectedAccount(null);
+            setEditingAccount(acc);
+          }}
+          onDelete={(id) => setAccountToDelete(accounts.find(a => a.id === id) || null)}
         />
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!accountToDelete}
+        title={language === 'bn' ? 'একাউন্ট মুছে ফেলুন' : 'Delete Account'}
+        itemName={accountToDelete ? `${accountToDelete.accountName} (${accountToDelete.accountType})` : ''}
+        onClose={() => setAccountToDelete(null)}
+        onConfirm={() => {
+          if (accountToDelete) {
+            deleteAccount(accountToDelete.id);
+            setAccountToDelete(null);
+            if (selectedAccount?.id === accountToDelete.id) {
+              setSelectedAccount(null);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

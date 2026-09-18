@@ -48,11 +48,12 @@ export const ExpenseReport: React.FC<ExpenseReportProps> = ({ dateRange }) => {
 
   const tableExpenses = useMemo(() => {
     return dateFilteredExpenses.filter(e => {
+      const term = searchTerm.toLowerCase();
       const matchesSearch = 
-        e.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.paidBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (e.notes && e.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+        (e.voucherNo || '').toLowerCase().includes(term) ||
+        (e.category || '').toLowerCase().includes(term) ||
+        (e.paidBy || '').toLowerCase().includes(term) ||
+        (e.notes || '').toLowerCase().includes(term);
       
       const matchesCat = categoryFilter === 'all' || e.category === categoryFilter;
       const matchesAcc = accountFilter === 'all' || e.accountId === accountFilter;

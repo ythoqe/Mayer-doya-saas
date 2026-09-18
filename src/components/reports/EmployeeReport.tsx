@@ -43,12 +43,13 @@ export const EmployeeReport: React.FC<EmployeeReportProps> = ({ dateRange }) => 
 
   // Filtered employees
   const filteredEmployees = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return employees.filter(emp => {
       const matchesSearch = 
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.phone.toLowerCase().includes(searchTerm.toLowerCase());
+        (emp.name || '').toLowerCase().includes(term) ||
+        (emp.designation || '').toLowerCase().includes(term) ||
+        (emp.department || '').toLowerCase().includes(term) ||
+        (emp.phone || '').toLowerCase().includes(term);
       
       const matchesDept = deptFilter === 'all' || emp.department === deptFilter;
       const matchesShift = shiftFilter === 'all' || emp.shift === shiftFilter;

@@ -52,10 +52,10 @@ export const Suppliers: React.FC = () => {
         if (filters.search) {
           const q = filters.search.toLowerCase();
           const matchCompany = (supplier.company || supplier.companyName || '').toLowerCase().includes(q);
-          const matchName = supplier.name?.toLowerCase().includes(q);
-          const matchPhone = supplier.phone?.toLowerCase().includes(q);
-          const matchCategory = supplier.category?.toLowerCase().includes(q);
-          const matchAddress = supplier.address?.toLowerCase().includes(q);
+          const matchName = (supplier.name || '').toLowerCase().includes(q);
+          const matchPhone = (supplier.phone || '').toLowerCase().includes(q);
+          const matchCategory = (supplier.category || '').toLowerCase().includes(q);
+          const matchAddress = (supplier.address || '').toLowerCase().includes(q);
           if (!matchCompany && !matchName && !matchPhone && !matchCategory && !matchAddress) {
             return false;
           }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Supplier } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency, formatNumber } from '../../utils/translation';
+import { getCategoryLabel } from '../../utils/chemicalCategories';
 import { 
   Building2, 
   User, 
@@ -38,22 +39,71 @@ export const SupplierDetailsModal: React.FC<SupplierDetailsModalProps> = ({
   onPaySupplier,
   onPrintStatement
 }) => {
-  const { inventory, expenses, language, t } = useERP();
+  const { inventory, expenses, supplierPurchases, supplierPayments, language, t } = useERP();
   const [activeTab, setActiveTab] = useState<'items' | 'ledger' | 'vouchers'>('items');
 
   if (!isOpen || !supplier) return null;
 
-  // Find linked chemicals/inventory items by category or name
+  // Real supplier purchases and payments
+  const thisSupplierPurchases = (supplierPurchases || []).filter(p => p.supplierId === supplier.id);
+  const thisSupplierPayments = (supplierPayments || []).filter(p => p.supplierId === supplier.id);
+
+  // Combine purchases & payments into a chronological ledger
+  type LedgerEntry = {
+    id: string;
+    date: string;
+    ref: string;
+    type: 'purchase' | 'payment';
+    description: string;
+    debit: number; // Payment made to supplier
+    credit: number; // Purchase from supplier
+    paymentStatus?: string;
+  };
+
+  const combinedLedger: LedgerEntry[] = [
+    ...thisSupplierPurchases.map(p => ({
+      id: p.id,
+      date: p.purchaseDate,
+      ref: p.purchaseNumber || p.invoiceRef || 'PUR',
+      type: 'purchase' as const,
+      description: `Chemical Purchase: ${formatNumber(p.quantity, language)} ${p.unit || 'kg'} ${p.itemName} @ ৳${p.unitPrice}${p.notes ? ` (${p.notes})` : ''}`,
+      debit: 0,
+      credit: p.totalAmount,
+      paymentStatus: p.paymentStatus
+    })),
+    ...thisSupplierPayments.map(p => ({
+      id: p.id,
+      date: p.paymentDate,
+      ref: p.paymentNumber || p.reference || 'PMT',
+      type: 'payment' as const,
+      description: `Payment to Supplier: ৳${formatNumber(p.amount, language)} via ${p.accountName || 'Cash/Bank'}${p.notes ? ` (${p.notes})` : ''}`,
+      debit: p.amount,
+      credit: 0
+    }))
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Calculate running balance for each entry
+  let runningBal = 0;
+  const ledgerWithBalance = combinedLedger.map(entry => {
+    runningBal += (entry.credit - entry.debit);
+    return {
+      ...entry,
+      runningBalance: Math.max(0, runningBal)
+    };
+  });
+
+  // Find linked chemicals/inventory items by supplierId or category
   const supplierCompName = supplier.company || supplier.companyName || '';
   const linkedInventory = inventory.filter(item => 
-    item.category?.toLowerCase() === supplier.category?.toLowerCase() ||
-    supplierCompName.toLowerCase().includes(item.category.toLowerCase())
+    item.supplierId === supplier.id ||
+    (item.category && supplier.category && item.category.toLowerCase() === supplier.category.toLowerCase()) ||
+    (supplierCompName && item.category && supplierCompName.toLowerCase().includes(item.category.toLowerCase()))
   );
 
   // Find linked expenses/vouchers
   const linkedExpenses = expenses.filter(e => 
-    e.notes?.toLowerCase().includes(supplierCompName.toLowerCase()) ||
-    e.category?.toLowerCase() === supplier.category?.toLowerCase()
+    (supplierCompName && (e.notes || '').toLowerCase().includes(supplierCompName.toLowerCase())) ||
+    (e.category && supplier.category && e.category.toLowerCase() === supplier.category.toLowerCase())
   );
 
   const getInitials = (name: string, company: string) => {
@@ -262,7 +312,7 @@ export const SupplierDetailsModal: React.FC<SupplierDetailsModalProps> = ({
                             </td>
                             <td className="py-2.5 px-3">
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DDF4F3] text-[#0B9FA5]">
-                                {item.category}
+                                {getCategoryLabel(item.category, language)}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 text-center font-bold">
@@ -288,7 +338,7 @@ export const SupplierDetailsModal: React.FC<SupplierDetailsModalProps> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-extrabold text-[#17383B] uppercase tracking-wider">
-                    Vendor Running Balance
+                    Vendor Running Balance & Transaction History
                   </h4>
                   <button
                     type="button"
@@ -300,40 +350,84 @@ export const SupplierDetailsModal: React.FC<SupplierDetailsModalProps> = ({
                   </button>
                 </div>
 
-                <div className="border border-[#D9EAEB] rounded-2xl overflow-hidden shadow-2xs">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-[#F1FAFA] border-b border-[#D9EAEB] text-[#17383B] font-bold text-[10px] uppercase">
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">PO / Ref</th>
-                        <th className="py-2.5 px-4">Supply Description</th>
-                        <th className="py-2.5 px-3 text-right">{t('debitCol')} (Paid)</th>
-                        <th className="py-2.5 px-3 text-right">{t('creditCol')} (Purchased)</th>
-                        <th className="py-2.5 px-3 text-right">Payable Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E6F0F1]">
-                      <tr className="hover:bg-[#F9FBFC]">
-                        <td className="py-2.5 px-3 text-[#688285] font-mono text-[11px]">2026-01-10</td>
-                        <td className="py-2.5 px-3 font-bold text-[#0B9FA5] font-mono">PO-{supplier.id.toUpperCase()}-01</td>
-                        <td className="py-2.5 px-4 text-[#17383B]">Bulk consignment delivery for {supplier.category}</td>
-                        <td className="py-2.5 px-3 text-right font-medium text-[#229A73]">৳ 0</td>
-                        <td className="py-2.5 px-3 text-right font-medium text-[#17383B]">{formatCurrency(supplier.totalPurchases, language)}</td>
-                        <td className="py-2.5 px-3 text-right font-extrabold text-[#C83F57]">{formatCurrency(supplier.totalPurchases, language)}</td>
-                      </tr>
-                      {supplier.totalPaid > 0 && (
-                        <tr className="hover:bg-[#F9FBFC]">
-                          <td className="py-2.5 px-3 text-[#688285] font-mono text-[11px]">2026-02-01</td>
-                          <td className="py-2.5 px-3 font-bold text-[#0B9FA5] font-mono">PMT-{supplier.id.toUpperCase()}-88</td>
-                          <td className="py-2.5 px-4 text-[#17383B]">Payment clearance against consignment</td>
-                          <td className="py-2.5 px-3 text-right font-medium text-[#229A73]">{formatCurrency(supplier.totalPaid, language)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium text-[#17383B]">৳ 0</td>
-                          <td className="py-2.5 px-3 text-right font-extrabold text-[#C83F57]">{formatCurrency(supplier.balance, language)}</td>
+                {ledgerWithBalance.length > 0 ? (
+                  <div className="border border-[#D9EAEB] rounded-2xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#F1FAFA] border-b border-[#D9EAEB] text-[#17383B] font-bold text-[10px] uppercase">
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Ref / Invoice</th>
+                          <th className="py-2.5 px-4">Description</th>
+                          <th className="py-2.5 px-3 text-right">Debit (Payment -)</th>
+                          <th className="py-2.5 px-3 text-right">Credit (Purchase +)</th>
+                          <th className="py-2.5 px-3 text-right">Payable Balance</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-[#E6F0F1]">
+                        {ledgerWithBalance.map((row) => (
+                          <tr key={row.id} className="hover:bg-[#F9FBFC]">
+                            <td className="py-2.5 px-3 text-[#688285] font-mono text-[11px]">{row.date}</td>
+                            <td className="py-2.5 px-3 font-bold text-[#0B9FA5] font-mono">{row.ref}</td>
+                            <td className="py-2.5 px-4 text-[#17383B]">
+                              <span>{row.description}</span>
+                              {row.paymentStatus && (
+                                <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                  row.paymentStatus === 'Paid' ? 'bg-[#EBF7EE] text-[#2E7D32]' : row.paymentStatus === 'Due' ? 'bg-[#FDF2F4] text-[#EA7185]' : 'bg-[#FFF9EB] text-[#D97706]'
+                                }`}>
+                                  {row.paymentStatus}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-[#229A73]">
+                              {row.debit > 0 ? formatCurrency(row.debit, language) : '—'}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-[#17383B]">
+                              {row.credit > 0 ? formatCurrency(row.credit, language) : '—'}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-extrabold text-[#C83F57]">
+                              {formatCurrency(row.runningBalance, language)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="border border-[#D9EAEB] rounded-2xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#F1FAFA] border-b border-[#D9EAEB] text-[#17383B] font-bold text-[10px] uppercase">
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">PO / Ref</th>
+                          <th className="py-2.5 px-4">Supply Description</th>
+                          <th className="py-2.5 px-3 text-right">{t('debitCol')} (Paid)</th>
+                          <th className="py-2.5 px-3 text-right">{t('creditCol')} (Purchased)</th>
+                          <th className="py-2.5 px-3 text-right">Payable Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E6F0F1]">
+                        <tr className="hover:bg-[#F9FBFC]">
+                          <td className="py-2.5 px-3 text-[#688285] font-mono text-[11px]">{new Date().toISOString().split('T')[0]}</td>
+                          <td className="py-2.5 px-3 font-bold text-[#0B9FA5] font-mono">INIT-{supplier.id.substring(0, 4).toUpperCase()}</td>
+                          <td className="py-2.5 px-4 text-[#17383B]">Initial purchase balance</td>
+                          <td className="py-2.5 px-3 text-right font-medium text-[#229A73]">৳ 0</td>
+                          <td className="py-2.5 px-3 text-right font-medium text-[#17383B]">{formatCurrency(supplier.totalPurchases, language)}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-[#C83F57]">{formatCurrency(supplier.totalPurchases, language)}</td>
+                        </tr>
+                        {supplier.totalPaid > 0 && (
+                          <tr className="hover:bg-[#F9FBFC]">
+                            <td className="py-2.5 px-3 text-[#688285] font-mono text-[11px]">{new Date().toISOString().split('T')[0]}</td>
+                            <td className="py-2.5 px-3 font-bold text-[#0B9FA5] font-mono">PMT-{supplier.id.substring(0, 4).toUpperCase()}</td>
+                            <td className="py-2.5 px-4 text-[#17383B]">Payment clearance</td>
+                            <td className="py-2.5 px-3 text-right font-medium text-[#229A73]">{formatCurrency(supplier.totalPaid, language)}</td>
+                            <td className="py-2.5 px-3 text-right font-medium text-[#17383B]">৳ 0</td>
+                            <td className="py-2.5 px-3 text-right font-extrabold text-[#C83F57]">{formatCurrency(supplier.balance, language)}</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 

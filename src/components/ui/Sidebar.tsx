@@ -16,7 +16,9 @@ import {
   Sparkles,
   ChevronRight,
   UserCheck,
-  Settings
+  Settings,
+  TrendingUp,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -69,7 +71,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       groupTitle: 'Finance',
       items: [
         { id: 'accounts', label: t('accounts'), icon: Landmark, badge: pendingChequesCount > 0 ? pendingChequesCount : undefined, badgeColor: 'bg-[#EEEBFF] text-[#8178F2]' },
-        { id: 'expenses', label: t('expenses'), icon: Receipt }
+        { id: 'expenses', label: t('expenses'), icon: Receipt },
+        { id: 'bankLoans', label: t('loans'), icon: Building2 },
+        { id: 'investors', label: t('investors'), icon: TrendingUp }
       ]
     },
     {

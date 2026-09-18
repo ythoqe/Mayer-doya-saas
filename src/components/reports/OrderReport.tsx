@@ -53,20 +53,21 @@ export const OrderReport: React.FC<OrderReportProps> = ({ dateRange }) => {
 
   // Table filtered orders
   const tableOrders = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return dateFilteredOrders.filter(o => {
       const matchesSearch = 
-        o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.styleNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.garmentType.toLowerCase().includes(searchTerm.toLowerCase());
+        (o.orderNumber || '').toLowerCase().includes(term) ||
+        (o.clientName || '').toLowerCase().includes(term) ||
+        (o.styleNo || '').toLowerCase().includes(term) ||
+        (o.garmentType || '').toLowerCase().includes(term);
       
       const matchesClient = selectedClient === 'all' || o.clientName === selectedClient;
 
       let matchesPayment = true;
       if (paymentStatusFilter === 'cleared') {
-        matchesPayment = o.dueAmount === 0;
+        matchesPayment = (o.dueAmount || 0) <= 0;
       } else if (paymentStatusFilter === 'due') {
-        matchesPayment = o.dueAmount > 0;
+        matchesPayment = (o.dueAmount || 0) > 0;
       }
 
       return matchesSearch && matchesClient && matchesPayment;

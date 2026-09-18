@@ -2,6 +2,7 @@ import React from 'react';
 import { useERP } from '../../context/ERPContext';
 import { GlassCard } from '../ui/GlassCard';
 import { formatCurrency, formatNumber } from '../../utils/translation';
+import { getCategoryLabel } from '../../utils/chemicalCategories';
 import { 
   Boxes, 
   DollarSign, 
@@ -15,7 +16,11 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
-export const InventoryKpis: React.FC = () => {
+export interface InventoryKpisProps {
+  onRestockClick?: () => void;
+}
+
+export const InventoryKpis: React.FC<InventoryKpisProps> = ({ onRestockClick }) => {
   const { inventory, language, t } = useERP();
 
   // Metrics
@@ -28,13 +33,12 @@ export const InventoryKpis: React.FC = () => {
   const healthyItems = inventory.filter(item => item.currentStockKg > item.minAlertLevel);
 
   // Chemical & Dye items count
-  const chemicalDyeItems = inventory.filter(item => 
-    ['Acid', 'Enzyme', 'Dye', 'Softener', 'Bleach', 'Alkali', 'Fixing Agent', 'Detergent'].includes(item.category)
-  );
+  const chemicalDyeItems = inventory;
 
   // Category distribution data for mini-chart
   const categoryMap = inventory.reduce((acc, item) => {
-    acc[item.category] = (acc[item.category] || 0) + (item.currentStockKg * item.unitPrice);
+    const catLabel = getCategoryLabel(item.category, language);
+    acc[catLabel] = (acc[catLabel] || 0) + (item.currentStockKg * item.unitPrice);
     return acc;
   }, {} as Record<string, number>);
 

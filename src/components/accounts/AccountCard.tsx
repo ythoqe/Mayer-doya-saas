@@ -2,17 +2,19 @@ import React from 'react';
 import { Account } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency } from '../../utils/translation';
-import { Landmark, Wallet, Smartphone, Coins, ArrowRightLeft, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Landmark, Wallet, Smartphone, Coins, ArrowRightLeft, FileText, CheckCircle2, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface AccountCardProps {
   account: Account;
   onSelect: (account: Account) => void;
   onTransfer: (account: Account) => void;
+  onEdit?: (account: Account) => void;
+  onDelete?: (id: string) => void;
 }
 
-export const AccountCard: React.FC<AccountCardProps> = ({ account, onSelect, onTransfer }) => {
-  const { language } = useERP();
+export const AccountCard: React.FC<AccountCardProps> = ({ account, onSelect, onTransfer, onEdit, onDelete }) => {
+  const { deleteAccount, language } = useERP();
 
   const getTypeStyle = () => {
     switch (account.accountType) {
@@ -88,14 +90,46 @@ export const AccountCard: React.FC<AccountCardProps> = ({ account, onSelect, onT
             </span>
           </div>
 
-          <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${account.status === 'active' ? 'bg-[#E5F8F1] text-[#229A73]' : 'bg-[#F1FAFA] text-[#8EA3A5]'}`}>
-            {account.status === 'active' ? (
-              <CheckCircle2 className="w-3 h-3" />
-            ) : (
-              <AlertCircle className="w-3 h-3" />
+          <div className="flex items-center gap-1.5">
+            <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${account.status === 'active' ? 'bg-[#E5F8F1] text-[#229A73]' : 'bg-[#F1FAFA] text-[#8EA3A5]'}`}>
+              {account.status === 'active' ? (
+                <CheckCircle2 className="w-3 h-3" />
+              ) : (
+                <AlertCircle className="w-3 h-3" />
+              )}
+              <span>{account.status === 'active' ? (language === 'bn' ? 'সচল' : 'Active') : (language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive')}</span>
+            </span>
+
+            {onEdit && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(account);
+                }}
+                className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#F3B562] hover:bg-[#FFF3DF] transition-colors"
+                title="Edit Account"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
             )}
-            <span>{account.status === 'active' ? (language === 'bn' ? 'সচল' : 'Active') : (language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive')}</span>
-          </span>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDelete) {
+                  onDelete(account.id);
+                } else {
+                  deleteAccount(account.id);
+                }
+              }}
+              className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#EA7185] hover:bg-[#FDECEF] transition-colors"
+              title="Delete Account"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Account Title & Bank Info */}

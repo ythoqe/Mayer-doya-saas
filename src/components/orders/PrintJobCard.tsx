@@ -17,6 +17,8 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
   language = 'en',
   onClose
 }) => {
+  if (!order) return null;
+
   const handlePrint = () => {
     window.print();
   };
@@ -128,6 +130,14 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
                     : 'In Washing'}
                 </strong>
               </div>
+              {order.finishingYards && order.finishingYards > 0 && order.greyYards && order.finishingYards < order.greyYards && (
+                <div className="flex justify-between text-[#C47D1C]">
+                  <span className="font-bold">Shortage / Loss (ঘাটতি):</span>
+                  <strong className="font-black">
+                    -{(order.greyYards - order.finishingYards).toFixed(2)} Yds ({(((order.greyYards - order.finishingYards) / order.greyYards) * 100).toFixed(2)}% কম)
+                  </strong>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-[#688285]">Delivery Date:</span>
                 <strong className="text-[#C83F57]">{order.deliveryDate}</strong>
@@ -233,6 +243,12 @@ export const PrintJobCard: React.FC<PrintJobCardProps> = ({
                       : `${formatNumber(order.greyYards || order.quantityPcs, (language as Language) || 'en')} Yds (Est)`}
                   </strong>
                 </div>
+                {order.finishingYards && order.finishingYards > 0 && order.greyYards && order.finishingYards < order.greyYards && (
+                  <div className="flex justify-between text-[#C47D1C] font-semibold">
+                    <span>Fabric Shortage (কম হয়েছে):</span>
+                    <strong>{(((order.greyYards - order.finishingYards) / order.greyYards) * 100).toFixed(2)}% লস</strong>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-[#688285]">Unit Rate (দর):</span>
                   <strong className="text-[#17383B]">{formatCurrency(order.unitRate, (language as Language) || 'en')} / Yard (গজ)</strong>

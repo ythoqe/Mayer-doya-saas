@@ -15,6 +15,7 @@ export const Expenses: React.FC = () => {
   const { expenses, accounts, deleteExpense, language, t } = useERP();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [printingExpense, setPrintingExpense] = useState<Expense | null>(null);
 
@@ -83,7 +84,10 @@ export const Expenses: React.FC = () => {
         {/* Primary Action Button */}
         <button
           type="button"
-          onClick={() => setIsAddOpen(true)}
+          onClick={() => {
+            setEditingExpense(null);
+            setIsAddOpen(true);
+          }}
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white text-xs font-extrabold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -112,17 +116,22 @@ export const Expenses: React.FC = () => {
             expenses={filteredExpenses}
             accounts={accounts}
             onSelectExpense={(exp) => setSelectedExpense(exp)}
+            onEditExpense={(exp) => setEditingExpense(exp)}
             onPrintExpense={(exp) => setPrintingExpense(exp)}
             onDeleteExpense={(id) => deleteExpense(id)}
           />
         </div>
       </div>
 
-      {/* Add Expense Modal */}
-      {isAddOpen && (
+      {/* Add / Edit Expense Modal */}
+      {(isAddOpen || editingExpense) && (
         <ExpenseModal
-          isOpen={isAddOpen}
-          onClose={() => setIsAddOpen(false)}
+          isOpen={isAddOpen || !!editingExpense}
+          expenseToEdit={editingExpense}
+          onClose={() => {
+            setIsAddOpen(false);
+            setEditingExpense(null);
+          }}
         />
       )}
 
@@ -131,6 +140,10 @@ export const Expenses: React.FC = () => {
         <ExpenseDetailsModal
           expense={selectedExpense}
           onClose={() => setSelectedExpense(null)}
+          onEdit={(exp) => {
+            setSelectedExpense(null);
+            setEditingExpense(exp);
+          }}
           onDelete={(id) => deleteExpense(id)}
         />
       )}

@@ -153,14 +153,33 @@ export const OrderTable: React.FC<OrderTableProps> = ({
 
                   {/* 4. Quantity (Gaze / Yards) */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <div className="font-extrabold text-xs text-[#17383B]">
-                      {formatNumber(order.finishingYards && order.finishingYards > 0 ? order.finishingYards : (order.greyYards || order.quantityPcs), language)}
-                      <span className="text-[10px] text-[#0B9FA5] font-bold ml-1">{language === 'bn' ? 'গজ' : 'Yds'}</span>
-                    </div>
-                    <div className="text-[10px] text-[#8EA3A5] font-medium mt-0.5">
-                      {language === 'bn' ? 'গেরে:' : 'Grey:'} {formatNumber(order.greyYards || order.quantityPcs, language)}
-                      {order.finishingYards && order.finishingYards > 0 ? ` | ফিনিশ: ${formatNumber(order.finishingYards, language)}` : ''}
-                    </div>
+                    {(() => {
+                      const grey = order.greyYards || order.quantityPcs || 0;
+                      const finish = order.finishingYards || 0;
+                      const diff = finish > 0 ? finish - grey : 0;
+                      const diffPct = finish > 0 && grey > 0 ? ((Math.abs(diff) / grey) * 100).toFixed(1) : '0';
+                      const isLoss = finish > 0 && diff < 0;
+
+                      return (
+                        <>
+                          <div className="font-extrabold text-xs text-[#17383B] flex items-center justify-end gap-1">
+                            <span>
+                              {formatNumber(finish > 0 ? finish : grey, language)}
+                            </span>
+                            <span className="text-[10px] text-[#0B9FA5] font-bold">{language === 'bn' ? 'গজ' : 'Yds'}</span>
+                            {isLoss && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-50 border border-amber-200 text-[#C47D1C] font-black text-[10px]" title={language === 'bn' ? 'কাপড় কম হয়েছে' : 'Fabric Shortage'}>
+                                -{formatNumber(diffPct, language)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-[#8EA3A5] font-medium mt-0.5">
+                            {language === 'bn' ? 'গেরে:' : 'Grey:'} {formatNumber(grey, language)}
+                            {finish > 0 ? ` | ফিনিশ: ${formatNumber(finish, language)}` : ''}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </td>
 
                   {/* 5. Financials */}
@@ -312,10 +331,15 @@ export const OrderTable: React.FC<OrderTableProps> = ({
               {/* Quantity, Amount & Due */}
               <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#F9FBFC] border border-[#E6F0F1] text-center text-xs">
                 <div>
-                  <span className="text-[10px] text-[#8EA3A5] block">{t('quantityPcs')}</span>
+                  <span className="text-[10px] text-[#8EA3A5] block">{language === 'bn' ? 'মোট গজ' : 'Total Yds'}</span>
                   <strong className="font-bold text-[#17383B]">
-                    {formatNumber(order.quantityPcs, language)}
+                    {formatNumber(order.finishingYards && order.finishingYards > 0 ? order.finishingYards : (order.greyYards || order.quantityPcs), language)} {language === 'bn' ? 'গজ' : 'Yds'}
                   </strong>
+                  {order.finishingYards && order.finishingYards > 0 && order.greyYards && order.finishingYards < order.greyYards && (
+                    <span className="text-[9px] text-[#C47D1C] font-black block mt-0.5">
+                      (-{formatNumber((((order.greyYards - order.finishingYards) / order.greyYards) * 100).toFixed(1), language)}% কম)
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-[10px] text-[#8EA3A5] block">Total</span>

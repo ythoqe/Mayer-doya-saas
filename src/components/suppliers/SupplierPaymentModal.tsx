@@ -16,7 +16,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { suppliers, accounts, updateSupplier, addExpense, language, t } = useERP();
+  const { suppliers, accounts, paySupplier, language, t } = useERP();
 
   const [selectedSupplierId, setSelectedSupplierId] = useState(supplier?.id || suppliers[0]?.id || '');
   const [amount, setAmount] = useState<number>(supplier?.balance && supplier.balance > 0 ? supplier.balance : 35000);
@@ -25,6 +25,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
   const [reference, setReference] = useState(`PAY-SUP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [notes, setNotes] = useState('Payment against raw material/chemical consignment');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (supplier) {
@@ -38,31 +39,25 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
   const currentSupplier = suppliers.find(s => s.id === selectedSupplierId) || supplier || suppliers[0];
   const selectedAccount = accounts.find(a => a.id === accountId) || accounts[0];
 
-  const handlePaySupplier = (e: React.FormEvent) => {
+  const handlePaySupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSupplier || amount <= 0) return;
+    if (!currentSupplier || Number(amount) <= 0) return;
+    setErrorMsg(null);
 
     const numAmount = Number(amount);
-    const newTotalPaid = (currentSupplier.totalPaid || 0) + numAmount;
-    const newBalance = Math.max(0, (currentSupplier.totalPurchases || 0) - newTotalPaid);
-
-    // 1. Update supplier balance & paid
-    updateSupplier(currentSupplier.id, {
-      totalPaid: newTotalPaid,
-      balance: newBalance
-    });
-
-    // 2. Log as factory expense/voucher
-    addExpense({
-      voucherNo: reference,
-      category: 'Chemicals',
+    const res = await paySupplier({
+      supplierId: currentSupplier.id,
       amount: numAmount,
-      date,
-      accountId: selectedAccount?.id || 'acc-1',
-      accountName: selectedAccount?.accountName || 'Primary Bank Account',
-      paidBy: 'Accounts Officer',
-      notes: `${notes} - Paid to ${currentSupplier.company || currentSupplier.companyName}`
+      accountId: selectedAccount?.id || accounts[0]?.id || 'acc-1',
+      paymentDate: date,
+      reference,
+      notes
     });
+
+    if (!res.success) {
+      setErrorMsg(res.message || 'পরিশোধ ব্যর্থ হয়েছে');
+      return;
+    }
 
     setIsSuccess(true);
     setTimeout(() => {
@@ -168,9 +163,10 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                     <input
                       type="number"
                       required
-                      min="1"
+                      min="0.01"
+                      step="any"
                       value={amount}
-                      onChange={(e) => setAmount(Number(e.target.value))}
+                      onChange={(e) => setAmount(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
                       className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-[#F1FAFA] border border-[#D9EAEB] text-xs sm:text-sm font-bold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                     />
                   </div>
@@ -245,6 +241,13 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                   placeholder="Payment remarks, consignment invoice references..."
                 />
               </div>
+
+              {/* Error Alert */}
+              {errorMsg && (
+                <div className="p-3 rounded-xl bg-[#FDF2F4] border border-[#EA7185]/30 text-[#EA7185] text-xs font-bold">
+                  {errorMsg}
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6F0F1]">

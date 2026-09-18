@@ -30,6 +30,7 @@ interface OrderDetailsModalProps {
   onClose: () => void;
   onEdit: (order: Order) => void;
   onPrint: (order: Order) => void;
+  onDeliver?: (order: Order) => void;
   onDelete: (orderId: string) => void;
 }
 
@@ -38,10 +39,13 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onClose,
   onEdit,
   onPrint,
+  onDeliver,
   onDelete
 }) => {
   const { clients, updateOrderStatus, language, t } = useERP();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  if (!order) return null;
 
   const client = clients.find(c => c.id === order.clientId);
 
@@ -78,6 +82,18 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   const nextStage = currentStageIndex >= 0 && currentStageIndex < PIPELINE_STAGES.length - 1 
     ? PIPELINE_STAGES[currentStageIndex + 1] 
     : null;
+
+  const handleStageChange = (newStatus: OrderStatus) => {
+    if (newStatus === 'delivered') {
+      if (onDeliver) {
+        onDeliver(order);
+      } else {
+        updateOrderStatus(order.id, 'delivered');
+      }
+      return;
+    }
+    updateOrderStatus(order.id, newStatus);
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#17383B]/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
@@ -116,6 +132,17 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
           {/* Top Quick Actions */}
           <div className="flex items-center gap-2">
+            {order.status !== 'delivered' && (
+              <button
+                type="button"
+                onClick={() => onDeliver ? onDeliver(order) : handleStageChange('delivered')}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#229A73] to-[#38C99A] hover:from-[#1E8563] hover:to-[#229A73] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{language === 'bn' ? 'ডেলিভারি ও ফাইনাল বিল' : 'Deliver Order'}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => onPrint(order)}
@@ -171,7 +198,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
               {nextStage && order.status !== 'cancelled' && (
                 <button
                   type="button"
-                  onClick={() => updateOrderStatus(order.id, nextStage.key)}
+                  onClick={() => handleStageChange(nextStage.key)}
                   className="px-3.5 py-1.5 rounded-xl bg-[#0B9FA5] hover:bg-[#078A90] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 self-start sm:self-auto hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <span>{t('stageAdvance')}:</span>
@@ -183,7 +210,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
             <ProductionTimeline
               currentStatus={order.status}
-              onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
+              onStatusChange={(newStatus) => handleStageChange(newStatus)}
               language={language}
               interactive={true}
             />
@@ -293,6 +320,53 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 </strong>
               </div>
             </div>
+
+            {/* Shrinkage & Loss Percentage Card if finished */}
+            {order.finishingYards && order.finishingYards > 0 && (
+              (() => {
+                const grey = order.greyYards || order.quantityPcs || 0;
+                const finish = order.finishingYards;
+                const diff = finish - grey;
+                const diffPct = grey > 0 ? ((Math.abs(diff) / grey) * 100).toFixed(2) : '0';
+                const isLoss = diff < 0;
+
+                return (
+                  <div className={`p-3.5 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-3 ${
+                    isLoss
+                      ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                      : diff > 0
+                      ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+                      : 'bg-[#F1FAFA] border-[#D9EAEB] text-[#17383B]'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold">
+                        {isLoss 
+                          ? (language === 'bn' ? '⚠️ ওয়াশিংয়ের পর কাপড় কম হওয়ার হিসাব (ঘাটতি):' : '⚠️ Post-Wash Fabric Shrinkage:')
+                          : (language === 'bn' ? 'ফিনিশিং ফলন বিশ্লেষণ:' : 'Finishing Yield Analysis:')}
+                      </span>
+                      <span>
+                        {language === 'bn'
+                          ? `গেরে ছিল ${formatNumber(grey, language)} গজ, ফিনিশিং হয়েছে ${formatNumber(finish, language)} গজ`
+                          : `Received ${formatNumber(grey, language)} Yds, Finished ${formatNumber(finish, language)} Yds`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full font-black text-xs ${
+                        isLoss ? 'bg-[#C47D1C] text-white' : 'bg-[#229A73] text-white'
+                      }`}>
+                        {isLoss
+                          ? `${formatNumber(diffPct, language)}% ${language === 'bn' ? 'কম হয়েছে' : 'Shortage'}`
+                          : `${formatNumber(diffPct, language)}% ${language === 'bn' ? 'বৃদ্ধি' : 'Gain'}`}
+                      </span>
+                      <strong className="font-extrabold text-xs">
+                        ({formatNumber(Math.abs(diff).toFixed(2), language)} {language === 'bn' ? 'গজ' : 'Yds'})
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
 
             {order.remarks && (
               <div className="p-3.5 rounded-xl bg-[#FFF3DF]/60 border border-[#F3B562]/30 text-xs">

@@ -131,7 +131,22 @@ export const DepartmentOverview: React.FC<DepartmentOverviewProps> = ({ employee
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deptList.map((d) => (
+          {deptList.length === 0 ? (
+            <div className="col-span-full py-12 px-4 bg-white rounded-[22px] border border-[#D9EAEB] text-center">
+              <div className="flex flex-col items-center justify-center gap-2">
+                <div className="w-12 h-12 rounded-2xl bg-[#F1FAFA] text-[#0B9FA5] flex items-center justify-center">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-[#17383B]">
+                  {language === 'bn' ? 'এখনো কোনো কর্মী বা ডিপার্টমেন্ট যোগ করা হয়নি' : 'No staff or departments registered yet'}
+                </p>
+                <p className="text-xs text-[#8EA3A5] max-w-sm">
+                  {language === 'bn' ? 'স্টাফ ডিরেক্টরি থেকে নতুন কর্মী যুক্ত করুন।' : 'Add new staff members from the Staff Directory tab.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            deptList.map((d) => (
             <motion.div
               key={d.deptName}
               whileHover={{ y: -2 }}
@@ -191,7 +206,7 @@ export const DepartmentOverview: React.FC<DepartmentOverviewProps> = ({ employee
                 </div>
               )}
             </motion.div>
-          ))}
+          )))}
         </div>
       </div>
     </div>

@@ -367,14 +367,16 @@ export const PrintCenter: React.FC<PrintCenterProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {inventory.map(i => {
-                    const isLow = i.currentStockKg <= i.minAlertLevel;
-                    const val = i.currentStockKg * i.unitPrice;
+                    const minLimit = i.minAlertLevel || 0;
+                    const unitPrice = i.unitPrice || 0;
+                    const isLow = i.currentStockKg <= minLimit;
+                    const val = i.currentStockKg * unitPrice;
                     return (
                       <tr key={i.id}>
                         <td className="p-2 border-r border-slate-300 font-bold">{i.name}</td>
                         <td className="p-2 border-r border-slate-300">{i.category}</td>
-                        <td className="p-2 border-r border-slate-300 text-right font-mono font-bold">{i.currentStockKg} {i.unit}</td>
-                        <td className="p-2 border-r border-slate-300 text-right font-mono">৳{i.unitPrice}</td>
+                        <td className="p-2 border-r border-slate-300 text-right font-mono font-bold">{i.currentStockKg} {i.unit || 'kg'}</td>
+                        <td className="p-2 border-r border-slate-300 text-right font-mono">৳{unitPrice}</td>
                         <td className="p-2 border-r border-slate-300 text-right font-mono font-bold">{formatCurrency(val, language)}</td>
                         <td className="p-2 text-center uppercase text-[10px] font-bold">
                           {isLow ? 'Low Stock Warning' : 'Safe Stock'}
@@ -401,8 +403,8 @@ export const PrintCenter: React.FC<PrintCenterProps> = ({
                     <th className="p-2 border-r border-slate-300">Voucher #</th>
                     <th className="p-2 border-r border-slate-300">Date</th>
                     <th className="p-2 border-r border-slate-300">Category</th>
-                    <th className="p-2 border-r border-slate-300">Paid By</th>
-                    <th className="p-2 border-r border-slate-300">Account</th>
+                    <th className="p-2 border-r border-slate-300">Paid By / Acc</th>
+                    <th className="p-2 border-r border-slate-300">Notes</th>
                     <th className="p-2 text-right">Amount (BDT)</th>
                   </tr>
                 </thead>
@@ -412,8 +414,8 @@ export const PrintCenter: React.FC<PrintCenterProps> = ({
                       <td className="p-2 border-r border-slate-300 font-bold">{e.voucherNo}</td>
                       <td className="p-2 border-r border-slate-300">{e.date}</td>
                       <td className="p-2 border-r border-slate-300 font-sans">{e.category}</td>
-                      <td className="p-2 border-r border-slate-300 font-sans">{e.paidBy}</td>
-                      <td className="p-2 border-r border-slate-300 font-sans">{e.accountName}</td>
+                      <td className="p-2 border-r border-slate-300 font-sans">{e.paidBy || 'Cash'}</td>
+                      <td className="p-2 border-r border-slate-300 font-sans">{e.notes || '-'}</td>
                       <td className="p-2 text-right font-bold">{formatCurrency(e.amount, language)}</td>
                     </tr>
                   ))}

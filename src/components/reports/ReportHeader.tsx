@@ -5,7 +5,9 @@ import {
   Printer, 
   RotateCcw, 
   ChevronDown,
-  BarChart3
+  BarChart3,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { useERP } from '../../context/ERPContext';
 import { DateRange, DateRangePreset, ReportCategory } from './types';
@@ -16,6 +18,7 @@ interface ReportHeaderProps {
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
   onExportCSV: () => void;
+  onExportExcel: () => void;
   onOpenPrintCenter: () => void;
 }
 
@@ -24,6 +27,7 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
   dateRange,
   setDateRange,
   onExportCSV,
+  onExportExcel,
   onOpenPrintCenter,
 }) => {
   const { t, language } = useERP();
@@ -64,7 +68,7 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
               {t('reportsCenterTitle')}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              {t('reportsCenterSubtitle')}
+              {language === 'bn' ? 'বাৎসরিক ও পর্যায়ক্রমিক আর্থিক হিসাব, এক্সেল ও এক ক্লিকে পিডিএফ রিপোর্ট' : t('reportsCenterSubtitle')}
             </p>
           </div>
         </div>
@@ -86,12 +90,12 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
                 className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 pr-7 appearance-none cursor-pointer hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
               >
                 <option value="all_time">{t('presetAllTime')}</option>
-                <option value="today">{t('presetToday')}</option>
-                <option value="yesterday">{t('presetYesterday')}</option>
-                <option value="this_week">{t('presetThisWeek')}</option>
+                <option value="this_year">{language === 'bn' ? '📅 এই বছর (Annual)' : t('presetThisYear')}</option>
                 <option value="this_month">{t('presetThisMonth')}</option>
                 <option value="last_month">{t('presetLastMonth')}</option>
-                <option value="this_year">{t('presetThisYear')}</option>
+                <option value="this_week">{t('presetThisWeek')}</option>
+                <option value="today">{t('presetToday')}</option>
+                <option value="yesterday">{t('presetYesterday')}</option>
                 <option value="custom">{t('presetCustom')}</option>
               </select>
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -130,24 +134,36 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
             )}
           </div>
 
+          {/* Export Excel (.xlsx) Button */}
+          <button
+            id="export-report-excel-btn"
+            onClick={onExportExcel}
+            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
+            title="বাৎসরিক ও সকল রিপোর্ট এক্সেলে (.xlsx) ডাউনলোড করুন"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" />
+            <span>{language === 'bn' ? 'এক্সেল (.xlsx)' : 'Export Excel'}</span>
+          </button>
+
           {/* Export CSV Button */}
           <button
             id="export-report-csv-btn"
             onClick={onExportCSV}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-slate-600" />
             <span>{t('exportCsv')}</span>
           </button>
 
-          {/* Print A4 Statement Button */}
+          {/* 1-Click Print / PDF Statement Button */}
           <button
             id="open-print-center-btn"
             onClick={onOpenPrintCenter}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors"
+            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors"
+            title="১-ক্লিকে পিডিএফ প্রিন্ট ও ডাউনলোড করুন"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>{t('printReport')}</span>
+            <span>{language === 'bn' ? '১-ক্লিকে PDF / প্রিন্ট' : t('printReport')}</span>
           </button>
         </div>
       </div>

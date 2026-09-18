@@ -3,6 +3,7 @@ import { useERP } from '../context/ERPContext';
 import { ReportCategory, DateRange, PrintDocumentType } from './reports/types';
 import { getDefaultDateRange } from './reports/dateUtils';
 import { exportReportToCSV } from './reports/csvExport';
+import { exportReportToExcel } from './reports/excelExport';
 import { ReportHeader } from './reports/ReportHeader';
 import { ReportCategoryTabs } from './reports/ReportCategoryTabs';
 import { OverviewReport } from './reports/OverviewReport';
@@ -32,7 +33,7 @@ export const Reports: React.FC = () => {
   } = useERP();
 
   const [activeCategory, setActiveCategory] = useState<ReportCategory>('overview');
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange('this_month'));
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange('this_year'));
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Map current active report category to corresponding print document template
@@ -74,6 +75,21 @@ export const Reports: React.FC = () => {
     });
   };
 
+  const handleExportExcel = () => {
+    exportReportToExcel(activeCategory, {
+      orders,
+      clients,
+      suppliers,
+      inventory,
+      expenses,
+      accounts,
+      transactions,
+      employees,
+      dateRange,
+      language
+    });
+  };
+
   const handleOpenPrint = () => {
     setIsPrintModalOpen(true);
   };
@@ -84,9 +100,10 @@ export const Reports: React.FC = () => {
       <ReportHeader
         activeCategory={activeCategory}
         dateRange={dateRange}
-        onDateRangeChange={setDateRange}
+        setDateRange={setDateRange}
         onExportCSV={handleExportCSV}
-        onPrint={handleOpenPrint}
+        onExportExcel={handleExportExcel}
+        onOpenPrintCenter={handleOpenPrint}
       />
 
       {/* Category Navigation Tabs with RBAC */}

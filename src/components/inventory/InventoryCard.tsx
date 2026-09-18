@@ -2,6 +2,7 @@ import React from 'react';
 import { useERP } from '../../context/ERPContext';
 import { InventoryItem } from '../../types';
 import { formatCurrency, formatNumber } from '../../utils/translation';
+import { getCategoryLabel, normalizeChemicalCategory } from '../../utils/chemicalCategories';
 import { 
   FlaskConical, 
   Droplet, 
@@ -14,6 +15,7 @@ import {
   Plus, 
   Minus, 
   Edit, 
+  Trash2,
   MapPin, 
   Building2,
   AlertCircle
@@ -25,6 +27,7 @@ interface InventoryCardProps {
   onStockIn: (item: InventoryItem) => void;
   onStockOut: (item: InventoryItem) => void;
   onEditItem: (item: InventoryItem) => void;
+  onDeleteItem?: (item: InventoryItem) => void;
 }
 
 export const InventoryCard: React.FC<InventoryCardProps> = ({
@@ -32,9 +35,10 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
   onViewDetails,
   onStockIn,
   onStockOut,
-  onEditItem
+  onEditItem,
+  onDeleteItem
 }) => {
-  const { updateInventoryStock, language, t } = useERP();
+  const { updateInventoryStock, deleteInventoryItem, language, t } = useERP();
 
   const isLow = item.currentStockKg <= item.minAlertLevel;
   const isCritical = item.currentStockKg <= item.minAlertLevel * 0.5;
@@ -43,21 +47,22 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
 
   // Helper for category badge styling
   const getCategoryBadge = (category: string) => {
-    switch (category) {
-      case 'Acid':
-        return { bg: 'bg-[#FEECEE]', text: 'text-[#EA7185]', border: 'border-[#EA7185]/30', icon: FlaskConical };
-      case 'Enzyme':
-        return { bg: 'bg-[#F0EEFF]', text: 'text-[#6366F1]', border: 'border-[#6366F1]/30', icon: Sparkles };
-      case 'Dye':
-        return { bg: 'bg-[#EAF7F8]', text: 'text-[#0B9FA5]', border: 'border-[#0B9FA5]/30', icon: Droplet };
-      case 'Softener':
-        return { bg: 'bg-[#E5F8F1]', text: 'text-[#229A73]', border: 'border-[#229A73]/30', icon: Layers };
-      case 'Bleach':
+    const norm = normalizeChemicalCategory(category);
+    switch (norm) {
+      case 'জুট':
+        return { bg: 'bg-[#E5F8F1]', text: 'text-[#1E825F]', border: 'border-[#1E825F]/30', icon: Layers };
+      case 'ব্লিচিং':
         return { bg: 'bg-[#FFF3DF]', text: 'text-[#C47D1C]', border: 'border-[#F3B562]/30', icon: Sparkles };
-      case 'Alkali':
-        return { bg: 'bg-[#FFF0E6]', text: 'text-[#E06D28]', border: 'border-[#E06D28]/30', icon: FlaskConical };
-      case 'Fixing Agent':
-        return { bg: 'bg-[#E6F4FF]', text: 'text-[#1E88E5]', border: 'border-[#1E88E5]/30', icon: Layers };
+      case 'সোডা':
+        return { bg: 'bg-[#FFF0E6]', text: 'text-[#E06D28]', border: 'border-[#E06D28]/30', icon: Layers };
+      case 'কাস্টিং':
+        return { bg: 'bg-[#F0EEFF]', text: 'text-[#6366F1]', border: 'border-[#6366F1]/30', icon: FlaskConical };
+      case 'এসিড':
+        return { bg: 'bg-[#FEECEE]', text: 'text-[#EA7185]', border: 'border-[#EA7185]/30', icon: FlaskConical };
+      case 'ব্লু':
+        return { bg: 'bg-[#EAF7F8]', text: 'text-[#0B9FA5]', border: 'border-[#0B9FA5]/30', icon: Droplet };
+      case 'বিএমবি':
+        return { bg: 'bg-[#EFF6FF]', text: 'text-[#2563EB]', border: 'border-[#2563EB]/30', icon: Sparkles };
       default:
         return { bg: 'bg-[#F1FAFA]', text: 'text-[#688285]', border: 'border-[#D9EAEB]', icon: Package };
     }
@@ -72,7 +77,7 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
       <div className="flex items-center justify-between gap-2">
         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${badge.bg} ${badge.text} ${badge.border}`}>
           <CategoryIcon className="w-3 h-3" />
-          {item.category}
+          {getCategoryLabel(item.category, language)}
         </span>
 
         {isCritical ? (
@@ -210,6 +215,21 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
             title={t('editItemBtn')}
           >
             <Edit className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onDeleteItem) {
+                onDeleteItem(item);
+              } else {
+                deleteInventoryItem(item.id);
+              }
+            }}
+            className="p-2 rounded-xl bg-[#F8FCFC] text-[#8EA3A5] hover:text-[#EA7185] hover:bg-[#FEECEE] border border-[#D9EAEB] transition-colors"
+            title={t('delete')}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

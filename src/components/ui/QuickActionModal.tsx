@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
+import { CHEMICAL_CATEGORIES, CanonicalChemicalCategory } from '../../utils/chemicalCategories';
 import { X, Plus, Package, Receipt, DollarSign, FlaskConical, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -25,34 +26,35 @@ export const QuickActionModal: React.FC = () => {
   const [clientId, setClientId] = useState(clients[0]?.id || '');
   const [fabricQuality, setFabricQuality] = useState('মার্কিন');
   const [colorShade, setColorShade] = useState('');
-  const [greyYards, setGreyYards] = useState(1000);
-  const [finishingYards, setFinishingYards] = useState(0);
-  const [unitRate, setUnitRate] = useState(40);
-  const [advanceAmount, setAdvanceAmount] = useState(10000);
+  const [greyYards, setGreyYards] = useState<number | string>(1000);
+  const [finishingYards, setFinishingYards] = useState<number | string>(0);
+  const [unitRate, setUnitRate] = useState<number | string>(40);
+  const [advanceAmount, setAdvanceAmount] = useState<number | string>(10000);
   const [deliveryDate, setDeliveryDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]);
 
   // New Expense Form
   const [expCategory, setExpCategory] = useState<'Gas' | 'Electricity' | 'Maintenance' | 'Chemicals' | 'Labor' | 'Misc'>('Maintenance');
-  const [expAmount, setExpAmount] = useState(5000);
+  const [expAmount, setExpAmount] = useState<number | string>(5000);
   const [expAccountId, setExpAccountId] = useState(accounts[0]?.id || '');
   const [expPaidBy, setExpPaidBy] = useState('');
   const [expNotes, setExpNotes] = useState('');
 
   // New Chemical Form
   const [chemName, setChemName] = useState('');
-  const [chemCategory, setChemCategory] = useState<'Acid' | 'Enzyme' | 'Dye' | 'Softener' | 'Bleach' | 'Alkali'>('Enzyme');
-  const [chemStock, setChemStock] = useState(100);
-  const [chemPrice, setChemPrice] = useState(250);
-  const [chemAlert, setChemAlert] = useState(50);
+  const [chemCategory, setChemCategory] = useState<CanonicalChemicalCategory>('জুট');
+  const [chemStock, setChemStock] = useState<number | string>(100);
+  const [chemPrice, setChemPrice] = useState<number | string>(250);
+  const [chemAlert, setChemAlert] = useState<number | string>(50);
 
-  if (!quickActionModal) return null;
+  if (!quickActionModal || quickActionModal === 'payment') return null;
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const selectedClient = clients.find(c => c.id === clientId) || clients[0];
     const billable = Number(finishingYards) > 0 ? Number(finishingYards) : Number(greyYards);
-    const total = Math.round(billable * Number(unitRate));
-    const due = Math.max(0, total - Number(advanceAmount));
+    const parsedRate = parseFloat(String(unitRate)) || 0;
+    const total = Math.round(billable * parsedRate * 100) / 100;
+    const due = Math.max(0, total - (Number(advanceAmount) || 0));
 
     addOrder({
       orderNumber: `MD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -61,13 +63,13 @@ export const QuickActionModal: React.FC = () => {
       fabricQuality,
       washType: fabricQuality,
       colorShade: colorShade || 'Standard Wash',
-      greyYards: Number(greyYards),
+      greyYards: Number(greyYards) || 0,
       finishingYards: Number(finishingYards) || 0,
       quantityPcs: billable,
       quantityYards: billable,
-      unitRate: Number(unitRate),
+      unitRate: parsedRate,
       totalAmount: total,
-      advanceAmount: Number(advanceAmount),
+      advanceAmount: Number(advanceAmount) || 0,
       dueAmount: due,
       status: 'pending',
       receivedDate: new Date().toISOString().split('T')[0],
@@ -260,9 +262,10 @@ export const QuickActionModal: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={greyYards}
-                      onChange={(e) => setGreyYards(Number(e.target.value))}
+                      onChange={(e) => setGreyYards(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
@@ -275,8 +278,9 @@ export const QuickActionModal: React.FC = () => {
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       value={finishingYards}
-                      onChange={(e) => setFinishingYards(Number(e.target.value))}
+                      onChange={(e) => setFinishingYards(e.target.value)}
                       placeholder="0"
                       className="w-full px-2.5 py-1.5 rounded-lg border-2 border-[#0B9FA5]/50 bg-white text-xs font-black text-[#0B9FA5] focus:border-[#0B9FA5] focus:outline-none"
                     />
@@ -288,9 +292,11 @@ export const QuickActionModal: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={unitRate}
-                      onChange={(e) => setUnitRate(Number(e.target.value))}
+                      onChange={(e) => setUnitRate(e.target.value)}
+                      placeholder="e.g. 5.75"
                       className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
@@ -303,8 +309,9 @@ export const QuickActionModal: React.FC = () => {
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       value={advanceAmount}
-                      onChange={(e) => setAdvanceAmount(Number(e.target.value))}
+                      onChange={(e) => setAdvanceAmount(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-[#D9EAEB] bg-white text-xs font-bold text-[#229A73] focus:border-[#229A73] focus:outline-none"
                     />
                   </div>
@@ -313,11 +320,11 @@ export const QuickActionModal: React.FC = () => {
                 <div className="p-3 bg-[#EAF6F7] rounded-xl flex items-center justify-between text-xs">
                   <span className="text-[#688285]">
                     {language === 'bn' ? 'হিসাবকৃত মোট বিল:' : 'Total Bill:'}{' '}
-                    <strong className="text-[#17383B]">৳{Math.round(((finishingYards > 0 ? finishingYards : greyYards) * unitRate)).toLocaleString()}</strong>
+                    <strong className="text-[#17383B]">৳{(Math.round(((Number(finishingYards) > 0 ? Number(finishingYards) : Number(greyYards)) * (parseFloat(String(unitRate)) || 0)) * 100) / 100).toLocaleString()}</strong>
                   </span>
                   <span className="text-[#688285]">
                     {language === 'bn' ? 'মোট বাকি:' : 'Net Due:'}{' '}
-                    <strong className="text-[#0B9FA5]">৳{Math.max(0, Math.round(((finishingYards > 0 ? finishingYards : greyYards) * unitRate)) - advanceAmount).toLocaleString()}</strong>
+                    <strong className="text-[#0B9FA5]">৳{Math.max(0, (Math.round(((Number(finishingYards) > 0 ? Number(finishingYards) : Number(greyYards)) * (parseFloat(String(unitRate)) || 0)) * 100) / 100) - (Number(advanceAmount) || 0)).toLocaleString()}</strong>
                   </span>
                 </div>
 
@@ -355,9 +362,10 @@ export const QuickActionModal: React.FC = () => {
                     <label className="block text-xs font-bold text-[#17383B] mb-1">Amount (BDT ৳)</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={expAmount}
-                      onChange={(e) => setExpAmount(Number(e.target.value))}
+                      onChange={(e) => setExpAmount(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-bold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
@@ -429,16 +437,16 @@ export const QuickActionModal: React.FC = () => {
                   <div>
                     <label className="block text-xs font-bold text-[#17383B] mb-1">Category</label>
                     <select
+                      id="quick-chem-category"
                       value={chemCategory}
                       onChange={(e) => setChemCategory(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-medium text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                     >
-                      <option value="Enzyme">Enzyme</option>
-                      <option value="Acid">Acid</option>
-                      <option value="Dye">Dye / Colorant</option>
-                      <option value="Softener">Softener</option>
-                      <option value="Bleach">Bleach / Oxidizer</option>
-                      <option value="Alkali">Alkali (Soda Ash)</option>
+                      {CHEMICAL_CATEGORIES.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {language === 'bn' ? c.bn : c.en}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -448,9 +456,10 @@ export const QuickActionModal: React.FC = () => {
                     <label className="block text-xs font-bold text-[#17383B] mb-1">Initial Stock (Kg)</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={chemStock}
-                      onChange={(e) => setChemStock(Number(e.target.value))}
+                      onChange={(e) => setChemStock(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
@@ -460,9 +469,10 @@ export const QuickActionModal: React.FC = () => {
                     <label className="block text-xs font-bold text-[#17383B] mb-1">Unit Price (৳/Kg)</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={chemPrice}
-                      onChange={(e) => setChemPrice(Number(e.target.value))}
+                      onChange={(e) => setChemPrice(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                       required
                     />
@@ -472,9 +482,10 @@ export const QuickActionModal: React.FC = () => {
                     <label className="block text-xs font-bold text-[#17383B] mb-1">Low Alert (Kg)</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       value={chemAlert}
-                      onChange={(e) => setChemAlert(Number(e.target.value))}
+                      onChange={(e) => setChemAlert(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#D9EAEB] bg-[#F1FAFA] text-xs font-semibold text-[#17383B] focus:bg-white focus:border-[#0B9FA5] focus:outline-none"
                     />
                   </div>

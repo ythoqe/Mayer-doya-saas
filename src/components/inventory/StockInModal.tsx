@@ -20,28 +20,48 @@ interface StockInModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedItem?: InventoryItem | null;
+  initialSupplierId?: string;
 }
 
 export const StockInModal: React.FC<StockInModalProps> = ({
   isOpen,
   onClose,
-  selectedItem
+  selectedItem,
+  initialSupplierId
 }) => {
-  const { inventory, suppliers, updateInventoryStock, addNotification, language, t } = useERP();
+  const { inventory, suppliers, accounts, recordChemicalPurchase, updateInventoryStock, addNotification, language, t } = useERP();
 
   const [itemId, setItemId] = useState<string>(selectedItem?.id || inventory[0]?.id || '');
-  const [supplierId, setSupplierId] = useState<string>(selectedItem?.supplierId || suppliers[0]?.id || '');
+  const [supplierId, setSupplierId] = useState<string>(
+    initialSupplierId || selectedItem?.supplierId || suppliers[0]?.id || ''
+  );
   const [quantity, setQuantity] = useState<number>(50);
   const [unitRate, setUnitRate] = useState<number>(selectedItem?.unitPrice || 100);
   const [receiveDate, setReceiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [referenceNo, setReferenceNo] = useState<string>(`CHLN-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [referenceNo, setReferenceNo] = useState<string>(`INV-CH-${Math.floor(1000 + Math.random() * 9000)}`);
   const [location, setLocation] = useState<string>(selectedItem?.location || 'Chemical Store');
+  const [paymentStatus, setPaymentStatus] = useState<'Due' | 'Paid' | 'Partial'>('Due');
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [accountId, setAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Keep state synced when selectedItem changes
+  // Keep state synced when selectedItem or initialSupplierId changes
   useEffect(() => {
-    if (selectedItem) {
+    if (initialSupplierId) {
+      setSupplierId(initialSupplierId);
+      const matchedItem = inventory.find(i => i.supplierId === initialSupplierId);
+      if (matchedItem) {
+        setItemId(matchedItem.id);
+        setUnitRate(matchedItem.unitPrice || 100);
+        setLocation(matchedItem.location || 'Chemical Store');
+      } else if (selectedItem) {
+        setItemId(selectedItem.id);
+        setUnitRate(selectedItem.unitPrice || 100);
+        setLocation(selectedItem.location || 'Chemical Store');
+      }
+    } else if (selectedItem) {
       setItemId(selectedItem.id);
       setSupplierId(selectedItem.supplierId || suppliers[0]?.id || '');
       setUnitRate(selectedItem.unitPrice || 100);
@@ -52,37 +72,57 @@ export const StockInModal: React.FC<StockInModalProps> = ({
       setUnitRate(inventory[0].unitPrice || 100);
       setLocation(inventory[0].location || 'Chemical Store');
     }
-  }, [selectedItem, inventory, suppliers]);
+  }, [selectedItem, initialSupplierId, inventory, suppliers]);
 
   if (!isOpen) return null;
 
   const currentItem = inventory.find(i => i.id === itemId) || selectedItem || inventory[0];
-  const selectedSupplierObj = suppliers.find(s => s.id === supplierId);
+  const selectedSupplierObj = suppliers.find(s => s.id === supplierId) || suppliers[0];
 
   // Derived financial calculation
   const totalCost = (Number(quantity) || 0) * (Number(unitRate) || 0);
+  const effectivePaid = paymentStatus === 'Paid' ? totalCost : (paymentStatus === 'Partial' ? Math.min(totalCost, Math.max(0, Number(paidAmount) || 0)) : 0);
+  const effectiveDue = Math.max(0, totalCost - effectivePaid);
   const newStockTotal = (currentItem?.currentStockKg || 0) + (Number(quantity) || 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentItem || Number(quantity) <= 0) return;
+    setErrorMsg(null);
+
+    const targetSupId = supplierId || currentItem.supplierId || suppliers[0]?.id;
+    if (!targetSupId) {
+      setErrorMsg(language === 'bn' ? 'দয়া করে একজন সাপ্লায়ার নির্বাচন করুন।' : 'Please select a supplier.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      updateInventoryStock(currentItem.id, newStockTotal);
-
-      // Notification
-      addNotification({
-        title: 'Stock In Recorded',
-        message: `Received ${quantity} ${currentItem.unit} of ${currentItem.name} from ${selectedSupplierObj?.company || 'Supplier'}.`,
-        type: 'inventory',
-        read: false,
-        linkTab: 'inventory'
+      // Full Chemical Purchase -> Supplier Card workflow
+      const res = await recordChemicalPurchase({
+        supplierId: targetSupId,
+        itemId: currentItem.id,
+        quantity: Number(quantity),
+        unitPrice: Number(unitRate),
+        purchaseDate: receiveDate,
+        invoiceRef: referenceNo,
+        paymentStatus,
+        paidAmount: effectivePaid,
+        paymentAccountId: effectivePaid > 0 ? accountId : '',
+        location: location || 'Chemical Store',
+        notes: notes.trim() || ''
       });
 
+      if (!res.success) {
+        setErrorMsg(res.message || 'ক্রয় সম্পন্ন করতে ব্যর্থ হয়েছে');
+        setIsSubmitting(false);
+        return;
+      }
+
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setErrorMsg(err.message || 'একটি ত্রুটি ঘটেছে');
     } finally {
       setIsSubmitting(false);
     }
@@ -259,6 +299,83 @@ export const StockInModal: React.FC<StockInModalProps> = ({
             </div>
           </div>
 
+          {/* Payment Status & Account Setup (Supplier Purchase Flow) */}
+          {supplierId && (
+            <div className="p-3.5 rounded-2xl bg-[#F8FCFC] border border-[#D9EAEB] space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#17383B] flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-[#0B9FA5]" />
+                  <span>পেমেন্ট অবস্থা / Payment Status</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {(['Due', 'Partial', 'Paid'] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => {
+                        setPaymentStatus(status);
+                        if (status === 'Paid') setPaidAmount(totalCost);
+                        else if (status === 'Due') setPaidAmount(0);
+                        else if (paidAmount === 0 || paidAmount >= totalCost) setPaidAmount(Math.round(totalCost / 2));
+                      }}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+                        paymentStatus === status
+                          ? status === 'Paid'
+                            ? 'bg-[#EBF7EE] text-[#2E7D32] border-[#2E7D32]/30'
+                            : status === 'Due'
+                            ? 'bg-[#FDF2F4] text-[#EA7185] border-[#EA7185]/30'
+                            : 'bg-[#FFF9EB] text-[#D97706] border-[#D97706]/30'
+                          : 'bg-white text-[#688285] border-[#D9EAEB] hover:bg-slate-50'
+                      }`}
+                    >
+                      {status === 'Paid' ? 'Paid (পরিশোধ)' : status === 'Due' ? 'Due (বকেয়া)' : 'Partial (আংশিক)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment Details when Paid or Partial */}
+              {paymentStatus !== 'Due' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#E6F0F1]">
+                  {paymentStatus === 'Partial' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-[#17383B]">
+                        পরিশোধিত টাকা / Paid Amount (৳) <span className="text-[#EA7185]">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={totalCost}
+                        value={paidAmount}
+                        onChange={(e) => setPaidAmount(Number(e.target.value))}
+                        className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-white border border-[#D9EAEB] text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div className={`space-y-1 ${paymentStatus === 'Paid' ? 'sm:col-span-2' : ''}`}>
+                    <label className="text-xs font-bold text-[#17383B]">
+                      পেমেন্ট অ্যাকাউন্ট / Payment Account <span className="text-[#EA7185]">*</span>
+                    </label>
+                    <select
+                      value={accountId}
+                      onChange={(e) => setAccountId(e.target.value)}
+                      className="w-full py-2 px-3 text-xs font-semibold rounded-xl bg-white border border-[#D9EAEB] text-[#17383B] focus:border-[#0B9FA5] focus:outline-none"
+                      required
+                    >
+                      {accounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.accountName} ({acc.accountType}) — ব্যালেন্স: ৳{(acc.currentBalance || 0).toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#688285]">
@@ -273,12 +390,20 @@ export const StockInModal: React.FC<StockInModalProps> = ({
             />
           </div>
 
-          {/* Clean Stock In Summary Panel */}
-          <div className="p-4 rounded-2xl bg-[#F1FAFA] border border-[#D9EAEB] space-y-2.5">
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-[#FDF2F4] border border-[#EA7185]/30 text-[#EA7185] text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Clean Stock In & Financial Summary Panel */}
+          <div className="p-4 rounded-2xl bg-[#F1FAFA] border border-[#D9EAEB] space-y-3">
             <h4 className="text-xs font-extrabold text-[#17383B] flex items-center justify-between">
-              <span>Stock In Summary</span>
+              <span>Stock In & Purchase Summary</span>
               <span className="text-[10px] font-bold text-[#0B9FA5] px-2 py-0.5 rounded-md bg-white border border-[#D9EAEB]">
-                Preview
+                Financial Preview
               </span>
             </h4>
 
@@ -291,7 +416,7 @@ export const StockInModal: React.FC<StockInModalProps> = ({
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8EA3A5] block">Incoming</span>
+                <span className="text-[10px] text-[#8EA3A5] block">Incoming Stock</span>
                 <span className="font-bold text-[#0B9FA5]">
                   +{formatNumber(quantity || 0, language)} {currentItem?.unit}
                 </span>
@@ -311,6 +436,29 @@ export const StockInModal: React.FC<StockInModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {supplierId && (
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#D9EAEB] text-xs">
+                <div>
+                  <span className="text-[10px] text-[#8EA3A5] block">Supplier Total Billed</span>
+                  <span className="font-bold text-[#17383B]">
+                    +{formatCurrency(totalCost, language)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[#8EA3A5] block">Immediate Payment</span>
+                  <span className="font-bold text-[#2E7D32]">
+                    {effectivePaid > 0 ? `-${formatCurrency(effectivePaid, language)}` : '৳0'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[#8EA3A5] block">Supplier Due Added</span>
+                  <span className={`font-black ${effectiveDue > 0 ? 'text-[#EA7185]' : 'text-[#2E7D32]'}`}>
+                    {formatCurrency(effectiveDue, language)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Action Buttons */}

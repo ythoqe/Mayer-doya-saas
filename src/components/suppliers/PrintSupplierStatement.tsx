@@ -18,27 +18,30 @@ export const PrintSupplierStatement: React.FC<PrintSupplierStatementProps> = ({
 }) => {
   const { expenses } = useERP();
 
+  if (!supplier) return null;
+
   const supplierCompName = supplier.company || supplier.companyName || '';
 
   // Filter linked expenses
   const supplierExpenses = expenses.filter(e => 
-    e.notes?.toLowerCase().includes(supplierCompName.toLowerCase()) ||
-    e.category?.toLowerCase() === supplier.category?.toLowerCase()
+    (supplierCompName && (e.notes || '').toLowerCase().includes(supplierCompName.toLowerCase())) ||
+    (e.category && supplier.category && e.category.toLowerCase() === supplier.category.toLowerCase())
   );
 
   // Generate synthetic ledger rows based on supplier purchases and paid history
+  const supplierIdClean = String(supplier.id || 'SUP').toUpperCase();
   const ledgerRows = [
     {
       date: '2026-01-10',
-      reference: `PO-SUP-${supplier.id.toUpperCase()}-01`,
-      description: `Initial ${supplier.category} bulk consignment supply`,
+      reference: `PO-SUP-${supplierIdClean}-01`,
+      description: `Initial ${supplier.category || 'General'} bulk consignment supply`,
       credit: supplier.totalPurchases || 0,
       debit: 0,
       balance: supplier.totalPurchases || 0
     },
     {
       date: '2026-02-01',
-      reference: `PMT-${supplier.id.toUpperCase()}-88`,
+      reference: `PMT-${supplierIdClean}-88`,
       description: `Bank payment via Accounts clearance`,
       credit: 0,
       debit: supplier.totalPaid || 0,

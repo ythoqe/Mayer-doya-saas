@@ -45,17 +45,18 @@ export const ClientReport: React.FC<ClientReportProps> = ({ dateRange }) => {
 
   // Filtered clients list
   const filteredClients = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return clients.filter(c => {
       const matchesSearch = 
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.phone.toLowerCase().includes(searchTerm.toLowerCase());
+        (c.name || '').toLowerCase().includes(term) ||
+        (c.companyName || '').toLowerCase().includes(term) ||
+        (c.phone || '').toLowerCase().includes(term);
       
       let matchesBalance = true;
       if (balanceFilter === 'due') {
-        matchesBalance = c.balance > 0;
+        matchesBalance = (c.balance || 0) > 0;
       } else if (balanceFilter === 'cleared') {
-        matchesBalance = c.balance === 0;
+        matchesBalance = (c.balance || 0) <= 0;
       }
 
       return matchesSearch && matchesBalance;
@@ -75,7 +76,7 @@ export const ClientReport: React.FC<ClientReportProps> = ({ dateRange }) => {
     return clients.reduce((sum, c) => sum + (c.balance || 0), 0);
   }, [clients]);
 
-  const collectionRatio = totalBilledAll > 0 ? (totalPaidAll / totalBilledAll) * 100 : 0;
+  const collectionRatio = totalBilledAll > 0 ? Math.min(100, Math.round(((totalPaidAll / totalBilledAll) * 100) * 10) / 10) : 0;
 
   // Chart: Top Clients by Billing
   const topClientsChartData = useMemo(() => {

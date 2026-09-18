@@ -7,10 +7,11 @@ import { motion } from 'motion/react';
 interface AccountModalProps {
   isOpen: boolean;
   onClose: () => void;
+  accountToEdit?: Account | null;
 }
 
-export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
-  const { addAccount, language, t } = useERP();
+export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, accountToEdit }) => {
+  const { addAccount, updateAccount, language, t } = useERP();
 
   const [accountName, setAccountName] = useState('');
   const [accountType, setAccountType] = useState<Account['accountType']>('Bank');
@@ -21,21 +22,53 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [isSuccess, setIsSuccess] = useState(false);
 
+  React.useEffect(() => {
+    if (accountToEdit) {
+      setAccountName(accountToEdit.accountName);
+      setAccountType(accountToEdit.accountType);
+      setAccountNumber(accountToEdit.accountNumber || '');
+      setBankName(accountToEdit.bankName || '');
+      setBranch(accountToEdit.branch || '');
+      setOpeningBalance(accountToEdit.currentBalance);
+      setStatus(accountToEdit.status);
+    } else {
+      setAccountName('');
+      setAccountType('Bank');
+      setAccountNumber('');
+      setBankName('');
+      setBranch('');
+      setOpeningBalance('');
+      setStatus('active');
+    }
+  }, [accountToEdit]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!accountName.trim()) return;
 
-    addAccount({
-      accountName: accountName.trim(),
-      accountType,
-      accountNumber: accountNumber.trim() || undefined,
-      bankName: bankName.trim() || undefined,
-      branch: branch.trim() || undefined,
-      currentBalance: Number(openingBalance) || 0,
-      status
-    });
+    if (accountToEdit) {
+      updateAccount(accountToEdit.id, {
+        accountName: accountName.trim(),
+        accountType,
+        accountNumber: accountNumber.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        branch: branch.trim() || undefined,
+        currentBalance: Number(openingBalance) || 0,
+        status
+      });
+    } else {
+      addAccount({
+        accountName: accountName.trim(),
+        accountType,
+        accountNumber: accountNumber.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        branch: branch.trim() || undefined,
+        currentBalance: Number(openingBalance) || 0,
+        status
+      });
+    }
 
     setIsSuccess(true);
     setTimeout(() => {
@@ -60,10 +93,10 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
             </div>
             <div>
               <h3 className="font-extrabold text-base text-[#17383B]">
-                {t('addAccountBtn')}
+                {accountToEdit ? (language === 'bn' ? 'হিসাব তথ্য সম্পাদনা করুন' : 'Edit Account Details') : t('addAccountBtn')}
               </h3>
               <p className="text-xs text-[#688285]">
-                {language === 'bn' ? 'ফ্যাক্টরি ব্যাংক, ক্যাশ বা এমএফএস হিসাব যুক্ত করুন' : 'Register a new cash vault, corporate bank, or digital wallet'}
+                {accountToEdit ? (language === 'bn' ? 'ব্যাংক বা ক্যাশ অ্যাকাউন্টের বিবরণ পরিবর্তন করুন' : 'Update existing account parameters') : (language === 'bn' ? 'ফ্যাক্টরি ব্যাংক, ক্যাশ বা এমএফএস হিসাব যুক্ত করুন' : 'Register a new cash vault, corporate bank, or digital wallet')}
               </p>
             </div>
           </div>
@@ -215,7 +248,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white font-extrabold text-xs shadow-md transition-all"
                 >
-                  {t('addAccountBtn')}
+                  {accountToEdit ? (language === 'bn' ? 'আপডেট সংরক্ষণ করুন' : 'Save Changes') : t('addAccountBtn')}
                 </button>
               </div>
             </form>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
+import { CHEMICAL_CATEGORIES } from '../../utils/chemicalCategories';
 import { Search, Filter, RotateCcw, X, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -34,7 +35,7 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
   setSortBy,
   onReset
 }) => {
-  const { suppliers, inventory, t } = useERP();
+  const { suppliers, inventory, language, t } = useERP();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // Extract unique locations from real inventory
@@ -50,15 +51,10 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
 
   const categories = [
     { key: 'all', label: t('allCategories') },
-    { key: 'Acid', label: t('categoryAcid') || 'Acid' },
-    { key: 'Enzyme', label: t('categoryEnzyme') || 'Enzyme' },
-    { key: 'Dye', label: t('categoryDye') || 'Dye' },
-    { key: 'Softener', label: t('categorySoftener') || 'Softener' },
-    { key: 'Bleach', label: t('categoryBleach') || 'Bleach' },
-    { key: 'Alkali', label: t('categoryAlkali') || 'Alkali' },
-    { key: 'Fixing Agent', label: t('categoryFixingAgent') || 'Fixing Agent' },
-    { key: 'Detergent', label: t('categoryDetergent') || 'Detergent' },
-    { key: 'Other', label: t('categoryOther') || 'Other' }
+    ...CHEMICAL_CATEGORIES.map(c => ({
+      key: c.id,
+      label: language === 'bn' ? c.bn : c.en
+    }))
   ];
 
   return (

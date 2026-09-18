@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Expense, Account } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency } from '../../utils/translation';
-import { Receipt, FileText, Printer, Trash2, Calendar, User, Landmark, Tag, ChevronRight } from 'lucide-react';
+import { Receipt, FileText, Printer, Edit2, Trash2, Calendar, User, Landmark, Tag, ChevronRight } from 'lucide-react';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 
 interface ExpenseTableProps {
   expenses: Expense[];
   accounts: Account[];
   onSelectExpense: (expense: Expense) => void;
+  onEditExpense?: (expense: Expense) => void;
   onPrintExpense: (expense: Expense) => void;
   onDeleteExpense: (id: string) => void;
 }
@@ -16,10 +18,12 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
   expenses,
   accounts,
   onSelectExpense,
+  onEditExpense,
   onPrintExpense,
   onDeleteExpense
 }) => {
   const { language, t } = useERP();
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
 
   const getAccountName = (accId: string) => {
     const acc = accounts.find(a => a.id === accId);
@@ -122,6 +126,17 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
                         <FileText className="w-4 h-4" />
                       </button>
 
+                      {onEditExpense && (
+                        <button
+                          type="button"
+                          onClick={() => onEditExpense(expense)}
+                          className="p-1.5 rounded-lg hover:bg-[#F1FAFA] text-[#8EA3A5] hover:text-[#F3B562] transition-colors"
+                          title={language === 'bn' ? 'এডিট করুন' : 'Edit Expense'}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => onPrintExpense(expense)}
@@ -129,6 +144,15 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
                         title={language === 'bn' ? 'ভাউচার প্রিন্ট' : 'Print Voucher'}
                       >
                         <Printer className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setExpenseToDelete(expense)}
+                        className="p-1.5 rounded-lg hover:bg-[#FDECEF] text-[#8EA3A5] hover:text-[#EA7185] transition-colors"
+                        title={t('delete')}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -176,6 +200,24 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
+                  {onEditExpense && (
+                    <button
+                      type="button"
+                      onClick={() => onEditExpense(expense)}
+                      className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#F3B562]"
+                      title={t('edit')}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setExpenseToDelete(expense)}
+                    className="p-1 rounded-lg text-[#8EA3A5] hover:text-[#EA7185]"
+                    title={t('delete')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => onPrintExpense(expense)}
@@ -197,6 +239,19 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
           );
         })}
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={!!expenseToDelete}
+        title={language === 'bn' ? 'খরচের ভাউচার মুছে ফেলুন' : 'Delete Expense Voucher'}
+        itemName={expenseToDelete ? `${expenseToDelete.voucherNo || `VCH-${expenseToDelete.id.slice(-5)}`} (${expenseToDelete.category} - ৳${expenseToDelete.amount})` : ''}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={() => {
+          if (expenseToDelete) {
+            onDeleteExpense(expenseToDelete.id);
+            setExpenseToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 };

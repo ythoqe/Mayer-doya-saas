@@ -62,7 +62,7 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({
     {
       id: 'delivered',
       title: 'Delivered',
-      titleBn: 'ডেলিভার',
+      titleBn: 'ডেলিভারি',
       statuses: ['delivered'],
       icon: CheckCircle2,
       color: 'border-[#38C99A] bg-[#38C99A]/10 text-[#229A73]',
@@ -89,13 +89,13 @@ export const ProductionBoard: React.FC<ProductionBoardProps> = ({
             {t('productionBoardTitle')}
           </h3>
           <p className="text-xs text-[#688285]">
-            {t('productionBoardSubtitle')}
+            {language === 'bn' ? '৩টি মূল পাইপলাইন ধাপ: পেন্ডিং, ওয়াশিং ও ডেলিভারি' : t('productionBoardSubtitle')}
           </p>
         </div>
       </div>
 
       {/* Kanban Lanes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start overflow-x-auto pb-4 custom-scrollbar">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start pb-4">
         {LANES.map((lane) => {
           const laneOrders = orders.filter(o => lane.statuses.includes(o.status));
           const totalPieces = laneOrders.reduce((sum, o) => sum + (Number(o.quantityPcs) || 0), 0);

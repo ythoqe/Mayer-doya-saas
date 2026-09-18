@@ -26,6 +26,7 @@ import {
   Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 
 export const UsersSettings: React.FC = () => {
   const { 
@@ -42,6 +43,7 @@ export const UsersSettings: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
@@ -93,21 +95,18 @@ export const UsersSettings: React.FC = () => {
       showToast('Cannot delete primary super admin account!', 'error');
       return;
     }
+    setUserToDelete(user);
+  };
 
-    const confirmText = language === 'bn' 
-      ? `আপনি কি নিশ্চিত যে ${user.name}-এর একাউন্ট স্থায়ীভাবে মুছে ফেলতে চান?` 
-      : `Are you sure you want to permanently delete ${user.name}'s account?`;
-    
-    if (window.confirm(confirmText)) {
-      try {
-        await deleteUser(user.id);
-        showToast(
-          language === 'bn' ? 'ব্যবহারকারী মুছে ফেলা হয়েছে।' : 'User deleted successfully.',
-          'success'
-        );
-      } catch (err: any) {
-        showToast(err.message || 'Delete failed', 'error');
-      }
+  const executeDelete = async (user: User) => {
+    try {
+      await deleteUser(user.id);
+      showToast(
+        language === 'bn' ? 'ব্যবহারকারী মুছে ফেলা হয়েছে।' : 'User deleted successfully.',
+        'success'
+      );
+    } catch (err: any) {
+      showToast(err.message || 'Delete failed', 'error');
     }
   };
 

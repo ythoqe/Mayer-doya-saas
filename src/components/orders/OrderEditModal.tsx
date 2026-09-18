@@ -24,7 +24,7 @@ export const FABRIC_QUALITIES = [
 ];
 
 interface OrderEditModalProps {
-  order: Order;
+  order: Order | null;
   onClose: () => void;
 }
 
@@ -34,22 +34,39 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 }) => {
   const { clients, updateOrder, language, t } = useERP();
 
-  const [formData, setFormData] = useState({
-    clientId: order.clientId,
-    clientName: order.clientName,
-    fabricQuality: order.fabricQuality || order.washType || 'মার্কিন',
-    colorShade: order.colorShade || '',
-    greyYards: order.greyYards || order.quantityPcs || 1000,
-    finishingYards: order.finishingYards || 0,
-    unitRate: order.unitRate || 40,
-    advanceAmount: order.advanceAmount || 0,
-    deliveryDate: order.deliveryDate || new Date().toISOString().split('T')[0],
-    priority: order.priority || 'normal',
-    status: order.status || 'pending',
-    batchNumber: order.batchNumber || '',
-    machineNo: order.machineNo || '',
-    remarks: order.remarks || ''
+  const [formData, setFormData] = useState<{
+    clientId: string;
+    clientName: string;
+    fabricQuality: string;
+    colorShade: string;
+    greyYards: number | string;
+    finishingYards: number | string;
+    unitRate: number | string;
+    advanceAmount: number | string;
+    deliveryDate: string;
+    priority: 'normal' | 'high' | 'urgent';
+    status: OrderStatus;
+    batchNumber: string;
+    machineNo: string;
+    remarks: string;
+  }>({
+    clientId: order?.clientId || '',
+    clientName: order?.clientName || '',
+    fabricQuality: order?.fabricQuality || order?.washType || 'মার্কিন',
+    colorShade: order?.colorShade || '',
+    greyYards: order?.greyYards || order?.quantityPcs || 1000,
+    finishingYards: order?.finishingYards || 0,
+    unitRate: order?.unitRate !== undefined ? order.unitRate : 40,
+    advanceAmount: order?.advanceAmount || 0,
+    deliveryDate: order?.deliveryDate || new Date().toISOString().split('T')[0],
+    priority: order?.priority || 'normal',
+    status: order?.status || 'pending',
+    batchNumber: order?.batchNumber || '',
+    machineNo: order?.machineNo || '',
+    remarks: order?.remarks || ''
   });
+
+  if (!order) return null;
 
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +76,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     ? Number(formData.finishingYards) 
     : Number(formData.greyYards) || 0;
   
-  const totalAmount = Math.round(billableYards * (Number(formData.unitRate) || 0));
+  const parsedUnitRate = parseFloat(String(formData.unitRate)) || 0;
+  const totalAmount = Math.round(billableYards * parsedUnitRate * 100) / 100;
   const dueAmount = Math.max(0, totalAmount - (Number(formData.advanceAmount) || 0));
 
   const handleClientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -74,7 +92,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.greyYards <= 0) {
+    if (Number(formData.greyYards) <= 0) {
       setError(language === 'bn' ? 'গেরে গজ ০ এর বেশি হতে হবে।' : 'Grey yards must be greater than 0.');
       return;
     }
@@ -89,9 +107,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       finishingYards: Number(formData.finishingYards) || 0,
       quantityPcs: Number(formData.finishingYards) > 0 ? Number(formData.finishingYards) : Number(formData.greyYards),
       quantityYards: Number(formData.finishingYards) > 0 ? Number(formData.finishingYards) : Number(formData.greyYards),
-      unitRate: Number(formData.unitRate),
+      unitRate: parseFloat(String(formData.unitRate)) || 0,
       totalAmount,
-      advanceAmount: Number(formData.advanceAmount),
+      advanceAmount: Number(formData.advanceAmount) || 0,
       dueAmount,
       status: formData.status as OrderStatus,
       deliveryDate: formData.deliveryDate,
@@ -229,9 +247,10 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
+                  step="any"
                   value={formData.greyYards}
-                  onChange={(e) => setFormData({ ...formData, greyYards: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, greyYards: e.target.value })}
                   className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg bg-white border border-[#D9EAEB] text-[#17383B] focus:outline-none focus:border-[#0B9FA5]"
                   required
                 />
@@ -247,8 +266,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.finishingYards}
-                  onChange={(e) => setFormData({ ...formData, finishingYards: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, finishingYards: e.target.value })}
                   placeholder="0"
                   className="w-full px-2.5 py-1.5 text-xs font-black rounded-lg bg-white border-2 border-[#0B9FA5]/60 text-[#0B9FA5] focus:outline-none focus:border-[#0B9FA5]"
                 />
@@ -264,9 +284,10 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  step="0.1"
+                  step="any"
                   value={formData.unitRate}
-                  onChange={(e) => setFormData({ ...formData, unitRate: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, unitRate: e.target.value })}
+                  placeholder="e.g. 5.75"
                   className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg bg-white border border-[#D9EAEB] text-[#17383B] focus:outline-none focus:border-[#0B9FA5]"
                   required
                 />
@@ -282,8 +303,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.advanceAmount}
-                  onChange={(e) => setFormData({ ...formData, advanceAmount: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, advanceAmount: e.target.value })}
                   className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg bg-white border border-[#D9EAEB] text-[#229A73] focus:outline-none focus:border-[#229A73]"
                 />
                 <span className="text-[9px] text-[#8EA3A5] block">
@@ -298,8 +320,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 <Info className="w-3.5 h-3.5 text-[#0B9FA5]" />
                 <span>
                   {language === 'bn' 
-                    ? `বিলযোগ্য গজ: ${billableYards.toLocaleString()} গজ ${formData.finishingYards > 0 ? '(ফিনিশিং গজ অনুযায়ী)' : '(গেরে গজ অনুযায়ী)'}` 
-                    : `Billable: ${billableYards.toLocaleString()} Yds ${formData.finishingYards > 0 ? '(via Finishing Gaze)' : '(via Grey Gaze)'}`}
+                    ? `বিলযোগ্য গজ: ${billableYards.toLocaleString()} গজ ${Number(formData.finishingYards) > 0 ? '(ফিনিশিং গজ অনুযায়ী)' : '(গেরে গজ অনুযায়ী)'}` 
+                    : `Billable: ${billableYards.toLocaleString()} Yds ${Number(formData.finishingYards) > 0 ? '(via Finishing Gaze)' : '(via Grey Gaze)'}`}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -311,6 +333,45 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Live Shrinkage / Shortage Calculation Box */}
+            {Number(formData.finishingYards) > 0 && Number(formData.greyYards) > 0 && (
+              <div className={`p-3 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-2 ${
+                Number(formData.finishingYards) < Number(formData.greyYards)
+                  ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                  : Number(formData.finishingYards) > Number(formData.greyYards)
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                  : 'bg-[#F1FAFA] border-[#D9EAEB] text-[#17383B]'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-[11px]">
+                    {Number(formData.finishingYards) < Number(formData.greyYards)
+                      ? (language === 'bn' ? '⚠️ ওয়াশ ঘাটতি (প্রসেস লস):' : '⚠️ Process Shrinkage:')
+                      : (language === 'bn' ? 'ফিনিশিং ফলন:' : 'Finishing Yield:')}
+                  </span>
+                  <span className="text-[11px]">
+                    {language === 'bn'
+                      ? `গেরে ${Number(formData.greyYards).toLocaleString()} গজ ➔ ফিনিশিং ${Number(formData.finishingYards).toLocaleString()} গজ`
+                      : `Grey ${Number(formData.greyYards).toLocaleString()} Yds ➔ Finishing ${Number(formData.finishingYards).toLocaleString()} Yds`}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-full font-black text-[11px] ${
+                    Number(formData.finishingYards) < Number(formData.greyYards)
+                      ? 'bg-[#C47D1C] text-white'
+                      : 'bg-[#229A73] text-white'
+                  }`}>
+                    {Number(formData.finishingYards) < Number(formData.greyYards)
+                      ? `${(((Number(formData.greyYards) - Number(formData.finishingYards)) / Number(formData.greyYards)) * 100).toFixed(2)}% ${language === 'bn' ? 'কম হয়েছে' : 'Shortage'}`
+                      : `${(((Number(formData.finishingYards) - Number(formData.greyYards)) / Number(formData.greyYards)) * 100).toFixed(2)}% ${language === 'bn' ? 'বৃদ্ধি' : 'Gain'}`}
+                  </span>
+                  <span className="font-extrabold text-[11px]">
+                    ({Math.abs(Number(formData.greyYards) - Number(formData.finishingYards)).toFixed(2)} {language === 'bn' ? 'গজ' : 'Yds'})
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Row 4: Delivery Date & Priority */}

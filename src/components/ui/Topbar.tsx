@@ -38,6 +38,8 @@ export const Topbar: React.FC<TopbarProps> = ({
       case 'accounts': return t('accounts');
       case 'expenses': return t('expenses');
       case 'cheques': return t('cheques');
+      case 'bankLoans': return t('loans');
+      case 'investors': return t('investors');
       case 'employees': return t('employees');
       case 'reports': return t('reports');
       case 'settings': return t('settingsTitle');

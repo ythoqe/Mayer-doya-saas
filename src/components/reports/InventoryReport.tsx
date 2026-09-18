@@ -23,6 +23,7 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { useERP } from '../../context/ERPContext';
+import { CHEMICAL_CATEGORIES, getCategoryLabel, matchesChemicalCategory } from '../../utils/chemicalCategories';
 import { formatCurrency, formatNumber } from '../../utils/translation';
 import { DateRange } from './types';
 
@@ -40,20 +41,21 @@ export const InventoryReport: React.FC<InventoryReportProps> = ({ dateRange }) =
 
   // Filtered Inventory
   const filteredInventory = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return inventory.filter(item => {
       const matchesSearch = 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.supplierName && item.supplierName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.location && item.location.toLowerCase().includes(searchTerm.toLowerCase()));
+        (item.name || '').toLowerCase().includes(term) ||
+        (item.category || '').toLowerCase().includes(term) ||
+        (item.supplierName || '').toLowerCase().includes(term) ||
+        (item.location || '').toLowerCase().includes(term);
       
-      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      const matchesCategory = categoryFilter === 'all' || matchesChemicalCategory(item.category, categoryFilter);
 
       let matchesStock = true;
       if (stockStatusFilter === 'low') {
-        matchesStock = item.currentStockKg <= item.minAlertLevel;
+        matchesStock = (Number(item.currentStockKg) || 0) <= (Number(item.minAlertLevel) || 0);
       } else if (stockStatusFilter === 'safe') {
-        matchesStock = item.currentStockKg > item.minAlertLevel;
+        matchesStock = (Number(item.currentStockKg) || 0) > (Number(item.minAlertLevel) || 0);
       }
 
       return matchesSearch && matchesCategory && matchesStock;
@@ -77,15 +79,16 @@ export const InventoryReport: React.FC<InventoryReportProps> = ({ dateRange }) =
   const categoryValuationData = useMemo(() => {
     const map: Record<string, number> = {};
     inventory.forEach(item => {
+      const catLabel = getCategoryLabel(item.category, language);
       const val = item.currentStockKg * item.unitPrice;
-      map[item.category] = (map[item.category] || 0) + val;
+      map[catLabel] = (map[catLabel] || 0) + val;
     });
 
     return Object.entries(map).map(([cat, val]) => ({
       name: cat,
       value: val
     }));
-  }, [inventory]);
+  }, [inventory, language]);
 
   // Chart: Top Valued Chemicals
   const topValuedItemsData = useMemo(() => {
@@ -278,17 +281,14 @@ export const InventoryReport: React.FC<InventoryReportProps> = ({ dateRange }) =
               id="filter-inv-category"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 font-medium"
             >
               <option value="all">{language === 'bn' ? 'সকল ক্যাটাগরি' : 'All Categories'}</option>
-              <option value="Enzyme">Enzyme</option>
-              <option value="Dye">Dye</option>
-              <option value="Acid">Acid</option>
-              <option value="Softener">Softener</option>
-              <option value="Bleach">Bleach</option>
-              <option value="Alkali">Alkali</option>
-              <option value="Fixing Agent">Fixing Agent</option>
-              <option value="Detergent">Detergent</option>
+              {CHEMICAL_CATEGORIES.map(c => (
+                <option key={c.id} value={c.id}>
+                  {language === 'bn' ? c.bn : c.en}
+                </option>
+              ))}
             </select>
 
             <select
@@ -332,8 +332,8 @@ export const InventoryReport: React.FC<InventoryReportProps> = ({ dateRange }) =
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px]">
-                          {item.category}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 font-bold text-[11px] border border-teal-100">
+                          {getCategoryLabel(item.category, language)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-600">

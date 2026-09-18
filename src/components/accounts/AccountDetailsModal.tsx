@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Account } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { formatCurrency } from '../../utils/translation';
-import { Landmark, X, Printer, ArrowRightLeft, FileText, Calendar, ArrowDownLeft, ArrowUpRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Landmark, X, Printer, ArrowRightLeft, FileText, Calendar, ArrowDownLeft, ArrowUpRight, CheckCircle2, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PrintAccountStatement } from './PrintAccountStatement';
 
@@ -10,14 +10,18 @@ interface AccountDetailsModalProps {
   account: Account | null;
   onClose: () => void;
   onTransfer: (account: Account) => void;
+  onEdit?: (account: Account) => void;
+  onDelete?: (id: string) => void;
 }
 
 export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
   account,
   onClose,
-  onTransfer
+  onTransfer,
+  onEdit,
+  onDelete
 }) => {
-  const { transactions, language, t } = useERP();
+  const { transactions, deleteAccount, language, t } = useERP();
   const [showPrintStatement, setShowPrintStatement] = useState(false);
 
   if (!account) return null;
@@ -156,14 +160,48 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
 
           {/* Footer Actions */}
           <div className="p-4 bg-[#F1FAFA] border-t border-[#D9EAEB] flex items-center justify-between shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowPrintStatement(true)}
-              className="px-4 py-2 rounded-xl bg-white border border-[#D9EAEB] hover:bg-[#E6F0F1] text-xs font-bold text-[#17383B] flex items-center gap-1.5 transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5 text-[#0B9FA5]" />
-              <span>{t('printStatementBtn')}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPrintStatement(true)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#D9EAEB] hover:bg-[#E6F0F1] text-xs font-bold text-[#17383B] flex items-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#0B9FA5]" />
+                <span>{t('printStatementBtn')}</span>
+              </button>
+
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEdit(account);
+                  }}
+                  className="p-2 rounded-xl bg-white border border-[#D9EAEB] hover:bg-[#FFF3DF] text-xs font-bold text-[#F3B562] flex items-center gap-1 transition-colors"
+                  title="Edit Account"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('edit')}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDelete) {
+                    onDelete(account.id);
+                  } else {
+                    deleteAccount(account.id);
+                  }
+                  onClose();
+                }}
+                className="p-2 rounded-xl bg-white border border-[#D9EAEB] hover:bg-[#FDECEF] text-xs font-bold text-[#EA7185] flex items-center gap-1 transition-colors"
+                title="Delete Account"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('delete')}</span>
+              </button>
+            </div>
 
             <div className="flex items-center gap-2">
               <button

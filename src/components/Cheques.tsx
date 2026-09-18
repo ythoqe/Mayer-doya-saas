@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useERP } from '../context/ERPContext';
+import { Cheque, ChequeDirection } from '../types';
 import { formatNumber } from '../utils/translation';
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import { ChequeSummaryCards } from './cheques/ChequeSummaryCards';
@@ -9,6 +10,20 @@ import { ChequeModal } from './cheques/ChequeModal';
 export const Cheques: React.FC = () => {
   const { cheques, language, t } = useERP();
   const [isAddChequeOpen, setIsAddChequeOpen] = useState(false);
+  const [addDirection, setAddDirection] = useState<'received' | 'issued'>('received');
+  const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
+
+  const handleOpenAdd = (dir: 'received' | 'issued' = 'received') => {
+    setEditingCheque(null);
+    setAddDirection(dir);
+    setIsAddChequeOpen(true);
+  };
+
+  const handleEditCheque = (chq: Cheque) => {
+    setEditingCheque(chq);
+    setAddDirection(chq.direction || (chq.partyType === 'Client' ? 'received' : 'issued'));
+    setIsAddChequeOpen(true);
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -24,18 +39,31 @@ export const Cheques: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-[#688285] mt-1 font-medium">
-            {t('chequesSubtitle')}
+            {language === 'bn' 
+              ? 'গ্রাহক থেকে চেক গ্রহণ, মহাজনকে চেক প্রদান/অ্যান্ডোর্সমেন্ট ও ব্যাংকিং ক্লিয়ারেন্স পরিচালনা।' 
+              : t('chequesSubtitle')}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsAddChequeOpen(true)}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white text-xs font-extrabold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('addChequeBtn')}</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleOpenAdd('received')}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{language === 'bn' ? '📥 চেক গ্রহণ (Client)' : '+ Receive Cheque'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenAdd('issued')}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6357E8] to-[#4838D1] hover:from-[#5144D3] hover:to-[#3C2BBF] text-white text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{language === 'bn' ? '📤 চেক প্রদান (Supplier)' : '+ Give Cheque'}</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -44,14 +72,20 @@ export const Cheques: React.FC = () => {
       {/* Cheque Table */}
       <ChequeTable
         cheques={cheques}
-        onAddCheque={() => setIsAddChequeOpen(true)}
+        onAddCheque={(dir) => handleOpenAdd(dir || 'received')}
+        onEditCheque={handleEditCheque}
       />
 
       {/* Modal */}
       {isAddChequeOpen && (
         <ChequeModal
           isOpen={isAddChequeOpen}
-          onClose={() => setIsAddChequeOpen(false)}
+          chequeToEdit={editingCheque}
+          defaultDirection={addDirection}
+          onClose={() => {
+            setIsAddChequeOpen(false);
+            setEditingCheque(null);
+          }}
         />
       )}
     </div>

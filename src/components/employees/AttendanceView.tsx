@@ -43,25 +43,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   // Filter records for selected date
   const dateRecords = useMemo(() => {
-    // Look up attendance records for this date
-    let records = attendanceRecords.filter(r => r.date === selectedDate);
-
-    // If no records for this date yet, dynamically generate default rows from active employees
-    if (records.length === 0) {
-      records = employees.map(emp => ({
-        id: `att-${selectedDate}-${emp.id}`,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        designation: emp.designation,
-        department: emp.department,
-        date: selectedDate,
-        status: emp.status === 'on_leave' ? 'on_leave' : 'present',
-        checkIn: emp.status === 'on_leave' ? '-' : '08:00 AM',
-        checkOut: emp.status === 'on_leave' ? '-' : '05:00 PM',
-        workingHours: emp.status === 'on_leave' ? 0 : 9,
-        remarks: emp.status === 'on_leave' ? 'Approved leave' : 'Scheduled shift'
-      }));
-    }
+    // Look up real attendance records for this date
+    const records = attendanceRecords.filter(r => r.date === selectedDate);
 
     return records.filter(r => {
       const matchSearch = r.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,7 +53,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       const matchDept = selectedDepartment === 'all' || r.department === selectedDepartment;
       return matchSearch && matchDept;
     });
-  }, [attendanceRecords, selectedDate, employees, searchQuery, selectedDepartment]);
+  }, [attendanceRecords, selectedDate, searchQuery, selectedDepartment]);
 
   // KPI calculations for selected date
   const presentCount = dateRecords.filter(r => r.status === 'present').length;
@@ -246,7 +229,24 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6F0F1]">
-              {dateRecords.map((record) => (
+              {dateRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 px-4 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-12 h-12 rounded-2xl bg-[#F1FAFA] text-[#0B9FA5] flex items-center justify-center">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-bold text-[#17383B]">
+                        {language === 'bn' ? 'এই তারিখে কোনো উপস্থিতি রেকর্ড পাওয়া যায়নি' : 'No attendance recorded for this date'}
+                      </p>
+                      <p className="text-xs text-[#8EA3A5] max-w-sm">
+                        {language === 'bn' ? 'স্টাফদের দৈনিক উপস্থিতি রেকর্ড করতে "উপস্থিতি দিন" বাটনে ক্লিক করুন।' : 'Click "Mark Attendance" above to record daily attendance.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                dateRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-[#F1FAFA]/60 transition-colors">
                   {/* Name & Designation */}
                   <td className="py-3 px-4">
@@ -350,7 +350,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
