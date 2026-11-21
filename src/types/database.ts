@@ -115,7 +115,15 @@ export interface Delivery {
 // Invoices
 // ---------------------------------------------------------------------------
 
-export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type InvoiceStatus =
+  | 'unpaid'
+  | 'partial'
+  | 'paid'
+  | 'cancelled'
+  | 'Unpaid'
+  | 'Partially Paid'
+  | 'Paid'
+  | 'Cancelled';
 
 export interface Invoice {
   id?: string;

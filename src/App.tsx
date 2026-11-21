@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './components/Dashboard';
 import { Orders } from './pages/Orders';
 import { Clients } from './pages/Clients';
+import { ClientLedger } from './pages/ClientLedger';
 import { Suppliers } from './components/Suppliers';
 import { Inventory } from './components/Inventory';
 import { Accounts } from './components/Accounts';
@@ -53,6 +54,8 @@ const ERPAppContent: React.FC = () => {
         return <Orders />;
       case 'clients':
         return <Clients />;
+      case 'clientLedger':
+        return <ClientLedger />;
       case 'suppliers':
         return <Suppliers />;
       case 'inventory':

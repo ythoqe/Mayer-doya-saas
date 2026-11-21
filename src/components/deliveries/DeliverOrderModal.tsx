@@ -114,7 +114,7 @@ export const DeliverOrderModal: React.FC<DeliverOrderModalProps> = ({
         }
         const liveOrder = orderSnap.data() as Order;
 
-        if (liveOrder.status === 'Delivered' || liveOrder.status === 'delivered') {
+        if (String(liveOrder.status).toLowerCase() === 'delivered') {
           throw new Error('This order has already been delivered / এই অর্ডারটি ইতিমধ্যে ডেলিভারি হয়ে গেছে।');
         }
 

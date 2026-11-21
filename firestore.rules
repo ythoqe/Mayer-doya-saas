@@ -189,7 +189,7 @@ service cloud.firestore {
         data.total is number &&
         data.paid is number &&
         data.currentDue is number &&
-        data.status in ['unpaid', 'partial', 'paid', 'cancelled'] &&
+        data.status in ['unpaid', 'partial', 'paid', 'cancelled', 'Unpaid', 'Partially Paid', 'Paid', 'Cancelled'] &&
         isValidTimestamp(data.createdAt);
     }
 

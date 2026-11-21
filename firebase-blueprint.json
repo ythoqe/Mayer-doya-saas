@@ -101,7 +101,7 @@
         "total": { "type": "number" },
         "paid": { "type": "number" },
         "currentDue": { "type": "number" },
-        "status": { "type": "string", "enum": ["unpaid", "partial", "paid", "cancelled"], "maxLength": 32 },
+        "status": { "type": "string", "enum": ["unpaid", "partial", "paid", "cancelled", "Unpaid", "Partially Paid", "Paid", "Cancelled"], "maxLength": 32 },
         "createdAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["invoiceNo", "orderId", "deliveryId", "clientId", "clientName", "invoiceDate", "subtotal", "total", "paid", "currentDue", "status", "createdAt"]

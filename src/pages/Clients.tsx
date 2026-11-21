@@ -10,6 +10,8 @@ import {
 } from 'firebase/firestore';
 import {
   AlertCircle,
+  Banknote,
+  BookOpen,
   Building2,
   CheckCircle2,
   Edit3,
@@ -22,6 +24,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { FirestoreClientPaymentModal } from '../components/clients/FirestoreClientPaymentModal';
+import { ClientLedger } from './ClientLedger';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getClientDoc,
@@ -85,6 +89,14 @@ export const Clients: React.FC = () => {
   // Delete confirmation modal state
   const [deletingClient, setDeletingClient] = useState<WithId<Client> | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
+
+  // Payment modal state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
+  const [paymentClientId, setPaymentClientId] = useState<string | null>(null);
+
+  // Ledger view state
+  const [ledgerViewOpen, setLedgerViewOpen] = useState<boolean>(false);
+  const [ledgerClientId, setLedgerClientId] = useState<string | null>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -293,6 +305,18 @@ export const Clients: React.FC = () => {
     }
   };
 
+  if (ledgerViewOpen) {
+    return (
+      <ClientLedger
+        initialClientId={ledgerClientId}
+        onBack={() => {
+          setLedgerViewOpen(false);
+          setLedgerClientId(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 pb-8">
       {/* Toast Banner */}
@@ -335,15 +359,43 @@ export const Clients: React.FC = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          id="btn-add-client"
-          onClick={openAddModal}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white text-xs sm:text-sm font-bold shadow-[0_6px_20px_rgba(11,159,165,0.28)] transition-all cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Client / নতুন ক্লায়েন্ট</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            id="btn-open-client-ledger"
+            onClick={() => {
+              setLedgerClientId(null);
+              setLedgerViewOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#D9EAEB] bg-white hover:bg-[#F1FAFA] text-[#17383B] text-xs sm:text-sm font-bold transition-all cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4 text-[#0B9FA5]" />
+            <span>Ledger / লেজার</span>
+          </button>
+
+          <button
+            type="button"
+            id="btn-receive-payment"
+            onClick={() => {
+              setPaymentClientId(null);
+              setIsPaymentModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#0B9FA5]/35 bg-white hover:bg-[#DDF4F3]/60 text-[#0B9FA5] text-xs sm:text-sm font-bold transition-all cursor-pointer"
+          >
+            <Banknote className="w-4 h-4" />
+            <span>Receive Payment / পেমেন্ট গ্রহণ</span>
+          </button>
+
+          <button
+            type="button"
+            id="btn-add-client"
+            onClick={openAddModal}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B9FA5] to-[#16B8B0] hover:from-[#078A90] hover:to-[#0B9FA5] text-white text-xs sm:text-sm font-bold shadow-[0_6px_20px_rgba(11,159,165,0.28)] transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Client / নতুন ক্লায়েন্ট</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Strip + Search Bar */}
@@ -500,6 +552,30 @@ export const Clients: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-5 text-right">
                         <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLedgerClientId(client.id);
+                              setLedgerViewOpen(true);
+                            }}
+                            title="View Ledger / লেজার দেখুন"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#8178F2]/35 bg-[#EEEBFF]/70 hover:bg-[#EEEBFF] text-[#5B52D6] text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Ledger</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentClientId(client.id);
+                              setIsPaymentModalOpen(true);
+                            }}
+                            title="Receive Payment / পেমেন্ট গ্রহণ"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#38C99A]/40 bg-[#E5F8F1]/70 hover:bg-[#E5F8F1] text-[#1D7F5F] text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <Banknote className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Pay</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(client)}
@@ -750,6 +826,18 @@ export const Clients: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Client Payment Modal (Firestore runTransaction) */}
+      <FirestoreClientPaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setPaymentClientId(null);
+        }}
+        clients={clients}
+        initialClientId={paymentClientId}
+        onSuccess={(msg) => showToast('success', msg)}
+        onError={(msg) => showToast('error', msg)}
+      />
     </div>
   );
 };
