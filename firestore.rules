@@ -1,0 +1,644 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------
+    // Global Hardened Primitives
+    // ------------------------------------------------------------------
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerified() && request.auth.token.email == 'hmmojjammalhoq@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() ||
+        (isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isOwner(uid) {
+      return isVerified() && request.auth.uid == uid;
+    }
+
+    // Tenant access for single-document ops (auth -> static validation -> relational check)
+    function isTenantMember(tenantId) {
+      return isBootstrappedAdmin() ||
+        (isVerified() && tenantId == request.auth.uid) ||
+        (isVerified() && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)));
+    }
+
+    // Cost-safe tenant list check (no get() or exists() inside allow list)
+    function canListTenant(tenantId) {
+      return isBootstrappedAdmin() || (isVerified() && tenantId == request.auth.uid);
+    }
+
+    function isValidStr(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isNonEmptyStr(val, maxLen) {
+      return val is string && val.size() >= 1 && val.size() <= maxLen;
+    }
+
+    function isOptionalStr(data, field, maxLen) {
+      return !(field in data) || data[field] == null || isValidStr(data[field], maxLen);
+    }
+
+    function isValidTimestamp(val) {
+      return val is timestamp || (val is string && val.size() >= 1 && val.size() <= 64);
+    }
+
+    function isOptionalTimestamp(data, field) {
+      return !(field in data) || data[field] == null || isValidTimestamp(data[field]);
+    }
+
+    // ------------------------------------------------------------------
+    // Validation Blueprints: Tenants & Members
+    // ------------------------------------------------------------------
+    function isValidTenant(data) {
+      return data.keys().hasAll(['name', 'createdAt', 'plan']) &&
+        data.keys().hasOnly(['name', 'createdAt', 'plan']) &&
+        isNonEmptyStr(data.name, 160) &&
+        isValidTimestamp(data.createdAt) &&
+        data.plan in ['free', 'starter', 'pro', 'enterprise'];
+    }
+
+    function isValidTenantMember(data) {
+      return data.keys().hasAll(['uid', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'role', 'createdAt']) &&
+        isValidId(data.uid) &&
+        data.role in ['owner', 'admin', 'manager', 'staff', 'viewer'] &&
+        isValidTimestamp(data.createdAt) &&
+        isOptionalStr(data, 'email', 200);
+    }
+
+    // ------------------------------------------------------------------
+    // Validation Blueprints: Multi-Tenant ERP Collections
+    // ------------------------------------------------------------------
+    function isValidClient(data) {
+      return data.keys().hasAll(['name', 'companyName', 'address', 'mobile', 'email', 'openingDue', 'currentDue', 'notes', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'companyName', 'address', 'mobile', 'email', 'openingDue', 'currentDue', 'notes', 'createdAt', 'updatedAt']) &&
+        isNonEmptyStr(data.name, 160) &&
+        isValidStr(data.companyName, 200) &&
+        isValidStr(data.address, 400) &&
+        isValidStr(data.mobile, 40) &&
+        isValidStr(data.email, 200) &&
+        data.openingDue is number &&
+        data.currentDue is number &&
+        isValidStr(data.notes, 1000) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'orderNo', 'clientId', 'clientName', 'orderDate', 'deliveryDate',
+        'fabricType', 'processingType', 'colorQuality', 'greyThan', 'greyGaz',
+        'ratePerGaz', 'status', 'specialInstruction', 'createdAt', 'updatedAt'
+      ]) &&
+        data.keys().hasOnly([
+          'orderNo', 'clientId', 'clientName', 'orderDate', 'deliveryDate',
+          'fabricType', 'processingType', 'colorQuality', 'greyThan', 'greyGaz',
+          'ratePerGaz', 'status', 'specialInstruction', 'createdAt', 'updatedAt'
+        ]) &&
+        isNonEmptyStr(data.orderNo, 64) &&
+        isValidId(data.clientId) &&
+        isNonEmptyStr(data.clientName, 160) &&
+        isValidTimestamp(data.orderDate) &&
+        (data.deliveryDate == '' || isValidTimestamp(data.deliveryDate)) &&
+        isValidStr(data.fabricType, 120) &&
+        isValidStr(data.processingType, 120) &&
+        isValidStr(data.colorQuality, 120) &&
+        data.greyThan is number &&
+        data.greyGaz is number &&
+        data.ratePerGaz is number &&
+        data.status in ['received', 'pending', 'processing', 'washing', 'dyeing', 'finishing', 'ready', 'partial_delivered', 'delivered', 'cancelled'] &&
+        isValidStr(data.specialInstruction, 1000) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidDelivery(data) {
+      return data.keys().hasAll([
+        'challanNo', 'orderId', 'clientId', 'clientName', 'deliveryDate',
+        'processedGaz', 'finalGaz', 'wastageGaz', 'ratePerGaz',
+        'invoiceId', 'remarks', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'challanNo', 'orderId', 'clientId', 'clientName', 'deliveryDate',
+          'processedGaz', 'finalGaz', 'wastageGaz', 'ratePerGaz',
+          'invoiceId', 'remarks', 'createdAt'
+        ]) &&
+        isNonEmptyStr(data.challanNo, 64) &&
+        isValidId(data.orderId) &&
+        isValidId(data.clientId) &&
+        isNonEmptyStr(data.clientName, 160) &&
+        isValidTimestamp(data.deliveryDate) &&
+        data.processedGaz is number &&
+        data.finalGaz is number &&
+        data.wastageGaz is number &&
+        data.ratePerGaz is number &&
+        isValidStr(data.invoiceId, 128) &&
+        isValidStr(data.remarks, 1000) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidInvoice(data) {
+      return data.keys().hasAll([
+        'invoiceNo', 'orderId', 'deliveryId', 'clientId', 'clientName',
+        'invoiceDate', 'subtotal', 'discount', 'previousDue',
+        'total', 'paid', 'currentDue', 'status', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'invoiceNo', 'orderId', 'deliveryId', 'clientId', 'clientName',
+          'invoiceDate', 'subtotal', 'discount', 'previousDue',
+          'total', 'paid', 'currentDue', 'status', 'createdAt'
+        ]) &&
+        isNonEmptyStr(data.invoiceNo, 64) &&
+        isValidId(data.orderId) &&
+        isValidId(data.deliveryId) &&
+        isValidId(data.clientId) &&
+        isNonEmptyStr(data.clientName, 160) &&
+        isValidTimestamp(data.invoiceDate) &&
+        data.subtotal is number &&
+        data.discount is number &&
+        data.previousDue is number &&
+        data.total is number &&
+        data.paid is number &&
+        data.currentDue is number &&
+        data.status in ['unpaid', 'partial', 'paid', 'cancelled'] &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidClientLedgerEntry(data) {
+      return data.keys().hasAll([
+        'clientId', 'entryDate', 'entryType', 'referenceId', 'referenceType',
+        'debit', 'credit', 'balance', 'remarks', 'createdBy', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'clientId', 'entryDate', 'entryType', 'referenceId', 'referenceType',
+          'debit', 'credit', 'balance', 'remarks', 'createdBy', 'createdAt'
+        ]) &&
+        isValidId(data.clientId) &&
+        isValidTimestamp(data.entryDate) &&
+        data.entryType in ['invoice', 'payment', 'adjustment'] &&
+        isValidStr(data.referenceId, 128) &&
+        isValidStr(data.referenceType, 64) &&
+        data.debit is number &&
+        data.credit is number &&
+        data.balance is number &&
+        isValidStr(data.remarks, 1000) &&
+        isNonEmptyStr(data.createdBy, 128) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll([
+        'name', 'companyName', 'address', 'mobile', 'product',
+        'openingDue', 'currentDue', 'createdAt', 'updatedAt'
+      ]) &&
+        data.keys().hasOnly([
+          'name', 'companyName', 'address', 'mobile', 'product',
+          'openingDue', 'currentDue', 'createdAt', 'updatedAt'
+        ]) &&
+        isNonEmptyStr(data.name, 160) &&
+        isValidStr(data.companyName, 200) &&
+        isValidStr(data.address, 400) &&
+        isValidStr(data.mobile, 40) &&
+        isValidStr(data.product, 160) &&
+        data.openingDue is number &&
+        data.currentDue is number &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPurchase(data) {
+      return data.keys().hasAll([
+        'purchaseNo', 'supplierId', 'supplierName', 'purchaseDate',
+        'items', 'total', 'paid', 'due', 'remarks', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'purchaseNo', 'supplierId', 'supplierName', 'purchaseDate',
+          'items', 'total', 'paid', 'due', 'remarks', 'createdAt'
+        ]) &&
+        isNonEmptyStr(data.purchaseNo, 64) &&
+        isValidId(data.supplierId) &&
+        isNonEmptyStr(data.supplierName, 160) &&
+        isValidTimestamp(data.purchaseDate) &&
+        data.items is list &&
+        data.items.size() >= 1 &&
+        data.items.size() <= 100 &&
+        data.items[0] is map &&
+        data.total is number &&
+        data.paid is number &&
+        data.due is number &&
+        isValidStr(data.remarks, 1000) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidSupplierLedgerEntry(data) {
+      return data.keys().hasAll([
+        'supplierId', 'entryDate', 'entryType', 'referenceId', 'referenceType',
+        'debit', 'credit', 'balance', 'remarks', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'supplierId', 'entryDate', 'entryType', 'referenceId', 'referenceType',
+          'debit', 'credit', 'balance', 'remarks', 'createdAt'
+        ]) &&
+        isValidId(data.supplierId) &&
+        isValidTimestamp(data.entryDate) &&
+        data.entryType in ['purchase', 'payment'] &&
+        isValidStr(data.referenceId, 128) &&
+        isValidStr(data.referenceType, 64) &&
+        data.debit is number &&
+        data.credit is number &&
+        data.balance is number &&
+        isValidStr(data.remarks, 1000) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAccount(data) {
+      return data.keys().hasAll(['name', 'accountType', 'openingBalance', 'currentBalance', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'accountType', 'openingBalance', 'currentBalance', 'createdAt']) &&
+        isNonEmptyStr(data.name, 160) &&
+        data.accountType in ['cash', 'bank', 'mobile'] &&
+        data.openingBalance is number &&
+        data.currentBalance is number &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll([
+        'accountId', 'txnDate', 'txnType', 'category',
+        'referenceId', 'referenceType', 'amount', 'remarks',
+        'createdBy', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'accountId', 'txnDate', 'txnType', 'category',
+          'referenceId', 'referenceType', 'amount', 'remarks',
+          'createdBy', 'createdAt'
+        ]) &&
+        isValidId(data.accountId) &&
+        isValidTimestamp(data.txnDate) &&
+        data.txnType in ['money_in', 'money_out', 'transfer'] &&
+        isNonEmptyStr(data.category, 120) &&
+        isValidStr(data.referenceId, 128) &&
+        isValidStr(data.referenceType, 64) &&
+        data.amount is number &&
+        isValidStr(data.remarks, 1000) &&
+        isNonEmptyStr(data.createdBy, 128) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidCheque(data) {
+      return data.keys().hasAll([
+        'chequeNo', 'bankName', 'amount', 'issueDate',
+        'receivedFromType', 'receivedFromId', 'receivedFromName',
+        'status', 'createdAt'
+      ]) &&
+        data.keys().hasOnly([
+          'chequeNo', 'bankName', 'amount', 'issueDate',
+          'receivedFromType', 'receivedFromId', 'receivedFromName',
+          'status', 'depositDate', 'endorsedToId', 'endorsedToName',
+          'clearedDate', 'createdAt'
+        ]) &&
+        isNonEmptyStr(data.chequeNo, 64) &&
+        isNonEmptyStr(data.bankName, 160) &&
+        data.amount is number &&
+        isValidTimestamp(data.issueDate) &&
+        data.receivedFromType in ['client', 'supplier', 'other'] &&
+        isValidId(data.receivedFromId) &&
+        isNonEmptyStr(data.receivedFromName, 160) &&
+        data.status in ['Pending', 'Deposited', 'Endorsed', 'Cleared', 'Bounced'] &&
+        isOptionalTimestamp(data, 'depositDate') &&
+        isOptionalStr(data, 'endorsedToId', 128) &&
+        isOptionalStr(data, 'endorsedToName', 160) &&
+        isOptionalTimestamp(data, 'clearedDate') &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidChemical(data) {
+      return data.keys().hasAll(['name', 'unit', 'currentStock', 'minStock', 'purchaseRate', 'supplier', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'unit', 'currentStock', 'minStock', 'purchaseRate', 'supplier', 'createdAt']) &&
+        isNonEmptyStr(data.name, 160) &&
+        isNonEmptyStr(data.unit, 32) &&
+        data.currentStock is number &&
+        data.minStock is number &&
+        data.purchaseRate is number &&
+        isValidStr(data.supplier, 160) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidChemicalTransaction(data) {
+      return data.keys().hasAll(['chemicalId', 'txnDate', 'txnType', 'qty', 'rate', 'referenceId', 'remarks', 'createdAt']) &&
+        data.keys().hasOnly(['chemicalId', 'txnDate', 'txnType', 'qty', 'rate', 'referenceId', 'remarks', 'createdAt']) &&
+        isValidId(data.chemicalId) &&
+        isValidTimestamp(data.txnDate) &&
+        data.txnType in ['purchase', 'usage', 'adjustment'] &&
+        data.qty is number &&
+        data.rate is number &&
+        isValidStr(data.referenceId, 128) &&
+        isValidStr(data.remarks, 1000) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidCounter(data) {
+      return data.keys().hasAll(['current', 'updatedAt']) &&
+        data.keys().hasOnly(['current', 'updatedAt']) &&
+        data.current is int &&
+        data.current >= 0 &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    // ------------------------------------------------------------------
+    // Validation Blueprints: Global Admins & Users
+    // ------------------------------------------------------------------
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+        data.keys().hasOnly(['email', 'role', 'createdAt']) &&
+        isNonEmptyStr(data.email, 200) &&
+        data.role in ['super_admin', 'admin'] &&
+        isOptionalStr(data, 'createdAt', 64);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'status']) &&
+        data.keys().hasOnly(['id', 'name', 'email', 'role', 'status', 'avatar', 'phone', 'createdAt', 'approvedAt', 'approvedBy']) &&
+        isValidId(data.id) &&
+        isNonEmptyStr(data.name, 120) &&
+        isNonEmptyStr(data.email, 200) &&
+        data.role in ['super_admin', 'admin', 'production_manager', 'dyeing_master', 'washing_manager', 'accounts_manager', 'store_keeper', 'employee', 'auditor'] &&
+        data.status in ['pending', 'approved', 'rejected'] &&
+        isOptionalStr(data, 'avatar', 500) &&
+        isOptionalStr(data, 'phone', 40) &&
+        isOptionalStr(data, 'createdAt', 64) &&
+        isOptionalStr(data, 'approvedAt', 64) &&
+        isOptionalStr(data, 'approvedBy', 120);
+    }
+
+    // ------------------------------------------------------------------
+    // Multi-Tenant Root & Subcollections
+    // ------------------------------------------------------------------
+    match /tenants/{tenantId} {
+      allow get: if isVerified() && isValidId(tenantId) && isTenantMember(tenantId);
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerified() && isValidId(tenantId) && isValidTenant(incoming()) && (tenantId == request.auth.uid || isBootstrappedAdmin());
+      allow update: if isVerified() && isValidId(tenantId) && isValidTenant(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'plan']) &&
+        (tenantId == request.auth.uid || isBootstrappedAdmin());
+      allow delete: if isVerified() && isValidId(tenantId) && isBootstrappedAdmin();
+
+      match /members/{memberUid} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(memberUid) && (isOwner(memberUid) || isTenantMember(tenantId));
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(memberUid) && isValidTenantMember(incoming()) &&
+          incoming().uid == memberUid &&
+          (tenantId == request.auth.uid || isBootstrappedAdmin());
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(memberUid) && isValidTenantMember(incoming()) &&
+          incoming().uid == existing().uid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'role']) &&
+          (tenantId == request.auth.uid || isBootstrappedAdmin());
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(memberUid) && (tenantId == request.auth.uid || isBootstrappedAdmin());
+      }
+
+      match /clients/{clientId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(clientId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(clientId) && isValidClient(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(clientId) && isValidClient(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'companyName', 'address', 'mobile', 'email', 'openingDue', 'currentDue', 'notes', 'updatedAt']) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(clientId) && isTenantMember(tenantId);
+      }
+
+      match /orders/{orderId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(orderId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(orderId) && isValidOrder(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(orderId) && isValidOrder(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'orderNo', 'clientId', 'clientName', 'orderDate', 'deliveryDate',
+            'fabricType', 'processingType', 'colorQuality', 'greyThan', 'greyGaz',
+            'ratePerGaz', 'status', 'specialInstruction', 'updatedAt'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(orderId) && isTenantMember(tenantId);
+      }
+
+      match /deliveries/{deliveryId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(deliveryId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(deliveryId) && isValidDelivery(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(deliveryId) && isValidDelivery(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'challanNo', 'orderId', 'clientId', 'clientName', 'deliveryDate',
+            'processedGaz', 'finalGaz', 'wastageGaz', 'ratePerGaz', 'invoiceId', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(deliveryId) && isTenantMember(tenantId);
+      }
+
+      match /invoices/{invoiceId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(invoiceId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(invoiceId) && isValidInvoice(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(invoiceId) && isValidInvoice(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'invoiceNo', 'orderId', 'deliveryId', 'clientId', 'clientName',
+            'invoiceDate', 'subtotal', 'discount', 'previousDue',
+            'total', 'paid', 'currentDue', 'status'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(invoiceId) && isTenantMember(tenantId);
+      }
+
+      match /clientLedger/{entryId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isValidClientLedgerEntry(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isValidClientLedgerEntry(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().createdBy == existing().createdBy &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'entryDate', 'entryType', 'referenceId', 'referenceType', 'debit', 'credit', 'balance', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isTenantMember(tenantId);
+      }
+
+      match /suppliers/{supplierId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(supplierId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(supplierId) && isValidSupplier(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(supplierId) && isValidSupplier(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'companyName', 'address', 'mobile', 'product', 'openingDue', 'currentDue', 'updatedAt'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(supplierId) && isTenantMember(tenantId);
+      }
+
+      match /purchases/{purchaseId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(purchaseId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(purchaseId) && isValidPurchase(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(purchaseId) && isValidPurchase(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'purchaseNo', 'supplierId', 'supplierName', 'purchaseDate', 'items', 'total', 'paid', 'due', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(purchaseId) && isTenantMember(tenantId);
+      }
+
+      match /supplierLedger/{entryId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isValidSupplierLedgerEntry(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isValidSupplierLedgerEntry(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'entryDate', 'entryType', 'referenceId', 'referenceType', 'debit', 'credit', 'balance', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(entryId) && isTenantMember(tenantId);
+      }
+
+      match /accounts/{accountId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(accountId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(accountId) && isValidAccount(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(accountId) && isValidAccount(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'accountType', 'openingBalance', 'currentBalance']) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(accountId) && isTenantMember(tenantId);
+      }
+
+      match /transactions/{txnId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isValidTransaction(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isValidTransaction(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().createdBy == existing().createdBy &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'accountId', 'txnDate', 'txnType', 'category', 'referenceId', 'referenceType', 'amount', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isTenantMember(tenantId);
+      }
+
+      match /cheques/{chequeId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(chequeId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(chequeId) && isValidCheque(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(chequeId) && isValidCheque(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'chequeNo', 'bankName', 'amount', 'issueDate', 'receivedFromType', 'receivedFromId',
+            'receivedFromName', 'status', 'depositDate', 'endorsedToId', 'endorsedToName', 'clearedDate'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(chequeId) && isTenantMember(tenantId);
+      }
+
+      match /chemicals/{chemicalId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(chemicalId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(chemicalId) && isValidChemical(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(chemicalId) && isValidChemical(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'unit', 'currentStock', 'minStock', 'purchaseRate', 'supplier'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(chemicalId) && isTenantMember(tenantId);
+      }
+
+      match /chemicalTransactions/{txnId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isValidChemicalTransaction(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isValidChemicalTransaction(incoming()) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'chemicalId', 'txnDate', 'txnType', 'qty', 'rate', 'referenceId', 'remarks'
+          ]) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(txnId) && isTenantMember(tenantId);
+      }
+
+      match /counters/{counterId} {
+        allow get: if isVerified() && isValidId(tenantId) && isValidId(counterId) && isTenantMember(tenantId);
+        allow list: if canListTenant(tenantId);
+        allow create: if isVerified() && isValidId(tenantId) && isValidId(counterId) && isValidCounter(incoming()) && isTenantMember(tenantId);
+        allow update: if isVerified() && isValidId(tenantId) && isValidId(counterId) && isValidCounter(incoming()) &&
+          incoming().current >= existing().current &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['current', 'updatedAt']) &&
+          isTenantMember(tenantId);
+        allow delete: if isVerified() && isValidId(tenantId) && isValidId(counterId) && isBootstrappedAdmin();
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // Global Admins & Users Collections
+    // ------------------------------------------------------------------
+    match /admins/{adminUid} {
+      allow get: if isVerified() && isValidId(adminUid) && (isOwner(adminUid) || isBootstrappedAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isVerified() && isValidId(adminUid) && isValidAdmin(incoming()) && isBootstrappedAdmin();
+      allow delete: if isVerified() && isValidId(adminUid) && isBootstrappedAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isVerified() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin() || (isVerified() && existing().id == request.auth.uid);
+      allow create: if isVerified() && isValidId(userId) && isValidUser(incoming()) && (
+        (isOwner(userId) && incoming().id == request.auth.uid && incoming().role == 'employee' && incoming().status == 'pending') ||
+        isAdmin()
+      );
+      allow update: if isVerified() && isValidId(userId) && isValidUser(incoming()) && (
+        (
+          isOwner(userId) &&
+          incoming().id == existing().id &&
+          incoming().role == existing().role &&
+          incoming().status == existing().status &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'avatar'])
+        ) ||
+        isAdmin()
+      );
+      allow delete: if isVerified() && isValidId(userId) && isAdmin();
+    }
+  }
+}

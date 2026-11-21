@@ -1,0 +1,382 @@
+{
+  "entities": {
+    "Tenant": {
+      "title": "Tenant",
+      "description": "Multi-tenant factory organization container.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "plan": { "type": "string", "enum": ["free", "starter", "pro", "enterprise"], "maxLength": 32 }
+      },
+      "required": ["name", "createdAt", "plan"]
+    },
+    "TenantMember": {
+      "title": "TenantMember",
+      "description": "Membership record granting an authenticated user access to a tenant.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["owner", "admin", "manager", "staff", "viewer"], "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "role", "createdAt"]
+    },
+    "TenantClient": {
+      "title": "Client",
+      "description": "Tenant-scoped client ledger record with running due.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 400 },
+        "mobile": { "type": "string", "maxLength": 40 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "openingDue": { "type": "number" },
+        "currentDue": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["name", "companyName", "mobile", "openingDue", "currentDue", "createdAt", "updatedAt"]
+    },
+    "TenantOrder": {
+      "title": "Order",
+      "description": "Tenant-scoped fabric washing/dyeing order.",
+      "type": "object",
+      "properties": {
+        "orderNo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "orderDate": { "type": "string", "maxLength": 64 },
+        "deliveryDate": { "type": "string", "maxLength": 64 },
+        "fabricType": { "type": "string", "maxLength": 120 },
+        "processingType": { "type": "string", "maxLength": 120 },
+        "colorQuality": { "type": "string", "maxLength": 120 },
+        "greyThan": { "type": "number" },
+        "greyGaz": { "type": "number" },
+        "ratePerGaz": { "type": "number" },
+        "status": { "type": "string", "maxLength": 40 },
+        "specialInstruction": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["orderNo", "clientId", "clientName", "orderDate", "greyGaz", "ratePerGaz", "status", "createdAt", "updatedAt"]
+    },
+    "TenantDelivery": {
+      "title": "Delivery",
+      "description": "Tenant-scoped delivery challan record for a processed order.",
+      "type": "object",
+      "properties": {
+        "challanNo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "deliveryDate": { "type": "string", "maxLength": 64 },
+        "processedGaz": { "type": "number" },
+        "finalGaz": { "type": "number" },
+        "wastageGaz": { "type": "number" },
+        "ratePerGaz": { "type": "number" },
+        "invoiceId": { "type": "string", "maxLength": 128 },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["challanNo", "orderId", "clientId", "clientName", "deliveryDate", "finalGaz", "ratePerGaz", "createdAt"]
+    },
+    "TenantInvoice": {
+      "title": "Invoice",
+      "description": "Tenant-scoped billing invoice linked to an order and delivery.",
+      "type": "object",
+      "properties": {
+        "invoiceNo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "deliveryId": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "invoiceDate": { "type": "string", "maxLength": 64 },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "previousDue": { "type": "number" },
+        "total": { "type": "number" },
+        "paid": { "type": "number" },
+        "currentDue": { "type": "number" },
+        "status": { "type": "string", "enum": ["unpaid", "partial", "paid", "cancelled"], "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["invoiceNo", "orderId", "deliveryId", "clientId", "clientName", "invoiceDate", "subtotal", "total", "paid", "currentDue", "status", "createdAt"]
+    },
+    "TenantClientLedgerEntry": {
+      "title": "ClientLedgerEntry",
+      "description": "Running balance ledger entry for a client.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string", "maxLength": 128 },
+        "entryDate": { "type": "string", "maxLength": 64 },
+        "entryType": { "type": "string", "enum": ["invoice", "payment", "adjustment"], "maxLength": 32 },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "referenceType": { "type": "string", "maxLength": 64 },
+        "debit": { "type": "number" },
+        "credit": { "type": "number" },
+        "balance": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["clientId", "entryDate", "entryType", "debit", "credit", "balance", "createdBy", "createdAt"]
+    },
+    "TenantSupplier": {
+      "title": "Supplier",
+      "description": "Tenant-scoped supplier record with running due.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 400 },
+        "mobile": { "type": "string", "maxLength": 40 },
+        "product": { "type": "string", "maxLength": 160 },
+        "openingDue": { "type": "number" },
+        "currentDue": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["name", "companyName", "mobile", "openingDue", "currentDue", "createdAt", "updatedAt"]
+    },
+    "TenantPurchase": {
+      "title": "Purchase",
+      "description": "Tenant-scoped supplier purchase invoice with line items.",
+      "type": "object",
+      "properties": {
+        "purchaseNo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "supplierId": { "type": "string", "maxLength": 128 },
+        "supplierName": { "type": "string", "maxLength": 160 },
+        "purchaseDate": { "type": "string", "maxLength": 64 },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "paid": { "type": "number" },
+        "due": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["purchaseNo", "supplierId", "supplierName", "purchaseDate", "items", "total", "paid", "due", "createdAt"]
+    },
+    "TenantSupplierLedgerEntry": {
+      "title": "SupplierLedgerEntry",
+      "description": "Running balance ledger entry for a supplier.",
+      "type": "object",
+      "properties": {
+        "supplierId": { "type": "string", "maxLength": 128 },
+        "entryDate": { "type": "string", "maxLength": 64 },
+        "entryType": { "type": "string", "enum": ["purchase", "payment"], "maxLength": 32 },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "referenceType": { "type": "string", "maxLength": 64 },
+        "debit": { "type": "number" },
+        "credit": { "type": "number" },
+        "balance": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["supplierId", "entryDate", "entryType", "debit", "credit", "balance", "createdAt"]
+    },
+    "TenantAccount": {
+      "title": "Account",
+      "description": "Tenant-scoped cash, bank, or mobile financial account.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "accountType": { "type": "string", "enum": ["cash", "bank", "mobile"], "maxLength": 20 },
+        "openingBalance": { "type": "number" },
+        "currentBalance": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["name", "accountType", "openingBalance", "currentBalance", "createdAt"]
+    },
+    "TenantTransaction": {
+      "title": "Transaction",
+      "description": "Tenant-scoped financial transaction entry.",
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "maxLength": 128 },
+        "txnDate": { "type": "string", "maxLength": 64 },
+        "txnType": { "type": "string", "enum": ["money_in", "money_out", "transfer"], "maxLength": 20 },
+        "category": { "type": "string", "maxLength": 120 },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "referenceType": { "type": "string", "maxLength": 64 },
+        "amount": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["accountId", "txnDate", "txnType", "category", "amount", "createdBy", "createdAt"]
+    },
+    "TenantCheque": {
+      "title": "Cheque",
+      "description": "Tenant-scoped cheque tracking record with endorsement and clearing status.",
+      "type": "object",
+      "properties": {
+        "chequeNo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "bankName": { "type": "string", "maxLength": 160 },
+        "amount": { "type": "number" },
+        "issueDate": { "type": "string", "maxLength": 64 },
+        "receivedFromType": { "type": "string", "maxLength": 32 },
+        "receivedFromId": { "type": "string", "maxLength": 128 },
+        "receivedFromName": { "type": "string", "maxLength": 160 },
+        "status": { "type": "string", "enum": ["Pending", "Deposited", "Endorsed", "Cleared", "Bounced"], "maxLength": 20 },
+        "depositDate": { "type": "string", "maxLength": 64 },
+        "endorsedToId": { "type": "string", "maxLength": 128 },
+        "endorsedToName": { "type": "string", "maxLength": 160 },
+        "clearedDate": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["chequeNo", "bankName", "amount", "issueDate", "receivedFromType", "receivedFromId", "receivedFromName", "status", "createdAt"]
+    },
+    "TenantChemical": {
+      "title": "Chemical",
+      "description": "Tenant-scoped chemical inventory item.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "unit": { "type": "string", "maxLength": 32 },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "purchaseRate": { "type": "number" },
+        "supplier": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["name", "unit", "currentStock", "minStock", "purchaseRate", "createdAt"]
+    },
+    "TenantChemicalTransaction": {
+      "title": "ChemicalTransaction",
+      "description": "Tenant-scoped chemical stock movement log.",
+      "type": "object",
+      "properties": {
+        "chemicalId": { "type": "string", "maxLength": 128 },
+        "txnDate": { "type": "string", "maxLength": 64 },
+        "txnType": { "type": "string", "enum": ["purchase", "usage", "adjustment"], "maxLength": 20 },
+        "qty": { "type": "number" },
+        "rate": { "type": "number" },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "remarks": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["chemicalId", "txnDate", "txnType", "qty", "rate", "createdAt"]
+    },
+    "TenantCounter": {
+      "title": "Counter",
+      "description": "Atomic sequential counter for generating document numbers (e.g. ORD-2026-0001).",
+      "type": "object",
+      "properties": {
+        "current": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["current", "updatedAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized factory ERP administrator entry keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["super_admin", "admin"], "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["email", "role"]
+    },
+    "User": {
+      "title": "User",
+      "description": "ERP user profile and access status (PII restricted to owner or admin).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "role": {
+          "type": "string",
+          "enum": ["super_admin", "admin", "production_manager", "dyeing_master", "washing_manager", "accounts_manager", "store_keeper", "employee", "auditor"],
+          "maxLength": 40
+        },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "maxLength": 20 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "approvedAt": { "type": "string", "maxLength": 64 },
+        "approvedBy": { "type": "string", "maxLength": 120 }
+      },
+      "required": ["id", "name", "email", "role", "status"]
+    }
+  },
+  "firestore": {
+    "/tenants/{tenantId}": {
+      "schema": { "$ref": "#/entities/Tenant" },
+      "description": "Root multi-tenant organization document."
+    },
+    "/tenants/{tenantId}/members/{memberUid}": {
+      "schema": { "$ref": "#/entities/TenantMember" },
+      "description": "Membership records granting authenticated users access to a tenant."
+    },
+    "/tenants/{tenantId}/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/TenantClient" },
+      "description": "Client accounts and running due balances for a tenant."
+    },
+    "/tenants/{tenantId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/TenantOrder" },
+      "description": "Washing and dyeing production orders for a tenant."
+    },
+    "/tenants/{tenantId}/deliveries/{deliveryId}": {
+      "schema": { "$ref": "#/entities/TenantDelivery" },
+      "description": "Delivery challans linked to orders and invoices."
+    },
+    "/tenants/{tenantId}/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/TenantInvoice" },
+      "description": "Client billing invoices with previous due and payment totals."
+    },
+    "/tenants/{tenantId}/clientLedger/{entryId}": {
+      "schema": { "$ref": "#/entities/TenantClientLedgerEntry" },
+      "description": "Client running balance ledger entries."
+    },
+    "/tenants/{tenantId}/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/TenantSupplier" },
+      "description": "Supplier accounts and running payable dues."
+    },
+    "/tenants/{tenantId}/purchases/{purchaseId}": {
+      "schema": { "$ref": "#/entities/TenantPurchase" },
+      "description": "Supplier purchase invoices with item breakdowns."
+    },
+    "/tenants/{tenantId}/supplierLedger/{entryId}": {
+      "schema": { "$ref": "#/entities/TenantSupplierLedgerEntry" },
+      "description": "Supplier running balance ledger entries."
+    },
+    "/tenants/{tenantId}/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/TenantAccount" },
+      "description": "Cash, bank, and mobile accounts."
+    },
+    "/tenants/{tenantId}/transactions/{txnId}": {
+      "schema": { "$ref": "#/entities/TenantTransaction" },
+      "description": "Account money-in, money-out, and transfer transactions."
+    },
+    "/tenants/{tenantId}/cheques/{chequeId}": {
+      "schema": { "$ref": "#/entities/TenantCheque" },
+      "description": "Bank cheques with deposit, endorsement, clearing, and bounce tracking."
+    },
+    "/tenants/{tenantId}/chemicals/{chemicalId}": {
+      "schema": { "$ref": "#/entities/TenantChemical" },
+      "description": "Chemical stock inventory items."
+    },
+    "/tenants/{tenantId}/chemicalTransactions/{txnId}": {
+      "schema": { "$ref": "#/entities/TenantChemicalTransaction" },
+      "description": "Chemical purchase, usage, and adjustment stock ledger."
+    },
+    "/tenants/{tenantId}/counters/{counterId}": {
+      "schema": { "$ref": "#/entities/TenantCounter" },
+      "description": "Sequential numbering counters for orders, challans, and invoices."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Trusted admin role lookup collection keyed by Firebase Auth UID."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "ERP user profiles with owner/admin PII isolation."
+    }
+  }
+}

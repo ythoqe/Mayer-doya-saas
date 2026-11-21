@@ -18,7 +18,8 @@ import {
   UserCheck,
   Settings,
   TrendingUp,
-  Building2
+  Building2,
+  PackageCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -55,7 +56,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       groupTitle: 'Operations',
       items: [
-        { id: 'orders', label: t('orders'), icon: Package, badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined, badgeColor: 'bg-[#DDF4F3] text-[#0B9FA5]' }
+        { id: 'orders', label: t('orders'), icon: Package, badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined, badgeColor: 'bg-[#DDF4F3] text-[#0B9FA5]' },
+        { id: 'deliveries', label: language === 'bn' ? 'ডেলিভারি' : 'Deliveries', icon: PackageCheck }
       ]
     },
     {
