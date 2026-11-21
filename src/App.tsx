@@ -9,7 +9,7 @@ import { Dashboard } from './components/Dashboard';
 import { Orders } from './pages/Orders';
 import { Clients } from './pages/Clients';
 import { ClientLedger } from './pages/ClientLedger';
-import { Suppliers } from './components/Suppliers';
+import { Suppliers } from './pages/Suppliers';
 import { Inventory } from './components/Inventory';
 import { Accounts } from './components/Accounts';
 import { Expenses } from './components/Expenses';

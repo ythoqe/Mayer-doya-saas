@@ -167,6 +167,27 @@
     background: #FFFFFF !important;
     color: #000000 !important;
   }
+  body.printing-thermal-voucher * {
+    visibility: hidden !important;
+  }
+  body.printing-thermal-voucher #thermal-payment-voucher,
+  body.printing-thermal-voucher #thermal-payment-voucher * {
+    visibility: visible !important;
+  }
+  body.printing-thermal-voucher #thermal-payment-voucher {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    padding: 4mm !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
 }
 
 @page thermal-4x3 {
@@ -178,5 +199,15 @@
   page: thermal-4x3;
   width: 4in;
   min-height: 3in;
+  box-sizing: border-box;
+}
+
+@page thermal-voucher {
+  size: 80mm auto;
+  margin: 0;
+}
+
+.thermal-payment-voucher {
+  page: thermal-voucher;
   box-sizing: border-box;
 }
